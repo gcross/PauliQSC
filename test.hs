@@ -93,6 +93,9 @@ main = defaultMain
                     return $ maybeFirstNonTrivialColumnOf operator == Just first_non_trivial_column
                 -- @-others
                 ]
+            -- @+node:gcross.20110918102335.1227: *5* multiplyByIf
+            ,testProperty "multiplyByIf" $ \(b :: Bool, x :: Operator Word8, y :: Operator Word8) →
+                multiplyByIf b x y == if b then (x `mappend` y) else y
             -- @+node:gcross.20110918102335.1192: *5* nonTrivialAt
             ,testProperty "nonTrivialAt" $ do
                 n ← choose (1,8)
