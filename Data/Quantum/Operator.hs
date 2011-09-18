@@ -57,7 +57,7 @@ commute a b = countAntiCommutingBits a b `mod` 2 == 0
 antiCommute :: Bits α ⇒ Operator α → Operator α → Bool
 antiCommute a b = countAntiCommutingBits a b `mod` 2 == 1
 
-countAntiCommutingBits :: Bits α ⇒ Operator α → Operator α → Word
+countAntiCommutingBits :: Bits α ⇒ Operator α → Operator α → Int
 countAntiCommutingBits a b =
     (   (countBits (operatorX a .&. operatorZ b))
     +   (countBits (operatorX b .&. operatorZ a))
@@ -71,7 +71,7 @@ antiCommuteAt i a b =
     (testBit (operatorX a) i && testBit (operatorZ b) i) /=
     (testBit (operatorZ a) i && testBit (operatorX b) i)
 -- @+node:gcross.20110724213035.1175: *3* countBits
-countBits :: Bits α ⇒ α → Word
+countBits :: Bits α ⇒ α → Int
 countBits = go 0
   where
     go accum 0 = 0
