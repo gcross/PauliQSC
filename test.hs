@@ -53,8 +53,26 @@ main = defaultMain
         -- @+node:gcross.20110918102335.1189: *4* Functions
         [testGroup "Functions" $
             -- @+others
+            -- @+node:gcross.20110918102335.1230: *5* antiCommuteAt
+            [testProperty "antiCommuteAt" $ do
+                n ← choose (1,8)
+                components1 :: [Pauli] ← vector n
+                components2 :: [Pauli] ← vector n
+                i ← choose (0,n-1)
+                return $
+                    antiCommuteAt i (fromPauliList components1 :: Operator Word8) (fromPauliList components2)
+                 == antiCommute (components1 !! i) (components2 !! i)
+            -- @+node:gcross.20110918102335.1228: *5* commuteAt
+            ,testProperty "commuteAt" $ do
+                n ← choose (1,8)
+                components1 :: [Pauli] ← vector n
+                components2 :: [Pauli] ← vector n
+                i ← choose (0,n-1)
+                return $
+                    commuteAt i (fromPauliList components1 :: Operator Word8) (fromPauliList components2)
+                 == commute (components1 !! i) (components2 !! i)
             -- @+node:gcross.20110918102335.1191: *5* countBits
-            [testProperty "countBits" $ \(x :: Word8) → countBits x == length [() | i ← [0..7], testBit x i]
+            ,testProperty "countBits" $ \(x :: Word8) → countBits x == length [() | i ← [0..7], testBit x i]
             -- @+node:gcross.20110918102335.1171: *5* fromPauliList
             ,testGroup "fromPauliList"
                 -- @+others
