@@ -71,6 +71,12 @@ main = defaultMain
                     return $ liftA2 (==) id (fromPauliList . toPauliList n) op
                 -- @-others
                 ]
+            -- @+node:gcross.20110918102335.1192: *5* nonTrivialAt
+            ,testProperty "nonTrivialAt" $ do
+                n ← choose (1,8)
+                o :: Operator Word8 ← generateOperator n
+                i ← choose (0,n-1)
+                return $ nonTrivialAt i o == (toPauliList n o !! i /= I)
             -- @+node:gcross.20110918102335.1175: *5* toPauliList
             ,testGroup "toPauliList"
                 -- @+others
