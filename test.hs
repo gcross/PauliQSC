@@ -14,6 +14,7 @@ import Control.Applicative
 import Control.Monad
 
 import Data.Bits
+import Data.Maybe
 import Data.Monoid
 import Data.Word
 
@@ -69,6 +70,27 @@ main = defaultMain
                             (fmap fromIntegral $ choose (0,upper_bound :: Int))
                             (fmap fromIntegral $ choose (0,upper_bound))
                     return $ liftA2 (==) id (fromPauliList . toPauliList n) op
+                -- @-others
+                ]
+            -- @+node:gcross.20110918102335.1224: *5* maybeFirstNonTrivialColumnOf
+            ,testGroup "maybeFirstNonTrivialColumnOf"
+                -- @+others
+                -- @+node:gcross.20110918102335.1225: *6* identity
+                [testCase "identity" $
+                    forM_ [0..8] $ \(n :: Int) →
+                        assertBool ("column " ++ show n) $
+                            isNothing (maybeFirstNonTrivialColumnOf . (fromPauliList :: [Pauli] → Operator Word8) $ replicate n I)
+                -- @+node:gcross.20110918102335.1226: *6* non-identity
+                ,testProperty "non-identity" $ do
+                    n ← choose(1,8)
+                    first_non_trivial_column ← choose (0,n-1)
+                    operator :: Operator Word8 ←
+                        fmap (fromPauliList . concat) . sequence $
+                            [return (replicate first_non_trivial_column I)
+                            ,fmap (:[]) (elements [X,Y,Z])
+                            ,vector (n-first_non_trivial_column-1)
+                            ]
+                    return $ maybeFirstNonTrivialColumnOf operator == Just first_non_trivial_column
                 -- @-others
                 ]
             -- @+node:gcross.20110918102335.1192: *5* nonTrivialAt
