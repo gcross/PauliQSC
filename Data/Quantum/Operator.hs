@@ -32,7 +32,7 @@ import Data.Word
 data Operator α = Operator
     {   operatorX :: !α
     ,   operatorZ :: !α
-    } deriving Eq
+    } deriving (Eq,Show,Read)
 
 instance Bits α ⇒ Monoid (Operator α) where
     mempty = Operator 0 0
