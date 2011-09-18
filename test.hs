@@ -114,6 +114,17 @@ main = defaultMain
             -- @+node:gcross.20110918102335.1227: *5* multiplyByIf
             ,testProperty "multiplyByIf" $ \(b :: Bool, x :: Operator Word8, y :: Operator Word8) →
                 multiplyByIf b x y == if b then (x `mappend` y) else y
+            -- @+node:gcross.20110918102335.1232: *5* multiplyByIfAntiCommuteAt
+            ,testProperty "multiplyByIfAntiCommuteAt" $ do
+                n ← choose (1,8)
+                components1 :: [Pauli] ← vector n
+                let operator1 :: Operator Word8 = fromPauliList components1
+                components2 :: [Pauli] ← vector n
+                let operator2 :: Operator Word8 = fromPauliList components2
+                i ← choose (0,n-1)
+                return $
+                    multiplyByIfAntiCommuteAt i operator1 operator2
+                 == if antiCommuteAt i operator1 operator2 then (operator1 `mappend` operator2) else operator2
             -- @+node:gcross.20110918102335.1192: *5* nonTrivialAt
             ,testProperty "nonTrivialAt" $ do
                 n ← choose (1,8)
