@@ -74,8 +74,8 @@ antiCommuteAt i a b =
 countBits :: Bits α ⇒ α → Int
 countBits = go 0
   where
-    go accum 0 = 0
-    go accum x = go (accum + x .&. 1) (shiftR x 1)
+    go accum 0 = accum
+    go accum x = go (if x .&. 1 == 0 then accum else accum + 1) (shiftR x 1)
 -- @+node:gcross.20110724213035.1196: *3* fromPauliList
 fromPauliList :: Bits α ⇒ [Pauli] → Operator α
 fromPauliList = go 0 0
