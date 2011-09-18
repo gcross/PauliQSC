@@ -28,6 +28,14 @@ import Data.Word
 -- @-<< Import needed modules >>
 
 -- @+others
+-- @+node:gcross.20110918102335.1199: ** Classes
+-- @+node:gcross.20110918102335.1200: *3* Commutable
+class Commutable α where
+    commute :: α → α → Bool
+    antiCommute :: α → α → Bool
+
+    commute x y = not (antiCommute x y)
+    antiCommute x y = not (commute x y)
 -- @+node:gcross.20110724213035.1162: ** Types (with instances)
 -- @+node:gcross.20110724213035.1163: *3* Operator
 data Operator α = Operator
@@ -44,25 +52,24 @@ instance Bits α ⇒ Monoid (Operator α) where
         (foldl' xor 0 . map operatorX) -- '
         (foldl' xor 0 . map operatorZ) -- '
     {-# INLINE mconcat #-}
+
+instance Bits α ⇒ Commutable (Operator α) where
+    commute a b =
+        ( countBits (operatorX a .&. operatorZ b)
+        + countBits (operatorX b .&. operatorZ a)
+        ) `mod` 2 == 0
 -- @+node:gcross.20110724213035.1197: *3* Pauli
 data Pauli = I | X | Z | Y deriving (Eq,Show,Read,Enum)
 
 instance Monoid Pauli where
     mempty = I
     mappend a b = toEnum (fromEnum a `xor` fromEnum b)
+
+instance Commutable Pauli where
+    commute I _ = True
+    commute _ I = True
+    commute x y = x == y
 -- @+node:gcross.20110724213035.1164: ** Functions
--- @+node:gcross.20110724213035.1174: *3* commute/antiCommute
-commute :: Bits α ⇒ Operator α → Operator α → Bool
-commute a b = countAntiCommutingBits a b `mod` 2 == 0
-
-antiCommute :: Bits α ⇒ Operator α → Operator α → Bool
-antiCommute a b = countAntiCommutingBits a b `mod` 2 == 1
-
-countAntiCommutingBits :: Bits α ⇒ Operator α → Operator α → Int
-countAntiCommutingBits a b =
-    (   (countBits (operatorX a .&. operatorZ b))
-    +   (countBits (operatorX b .&. operatorZ a))
-    )
 -- @+node:gcross.20110911234057.1157: *3* commuteAt/antiCommuteAt
 commuteAt :: Bits α ⇒ Int → Operator α → Operator α → Bool
 commuteAt i a b = not (antiCommuteAt i a b)

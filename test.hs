@@ -93,39 +93,95 @@ main = defaultMain
                 ]
             -- @-others
             ]
-        -- @+node:gcross.20110918102335.1185: *4* Monoid instances
-        ,testGroup "Monoid instances" $
+        -- @+node:gcross.20110918102335.1201: *4* Instances
+        ,testGroup "Instances"
             -- @+others
-            -- @+node:gcross.20110918102335.1186: *5* Pauli
-            [testCase "Pauli" $ do
-                assertEqual "I*I=I" I (I `mappend` I)
-                assertEqual "I*X=X" X (I `mappend` X)
-                assertEqual "I*Y=Y" Y (I `mappend` Y)
-                assertEqual "I*Z=Z" Z (I `mappend` Z)
+            -- @+node:gcross.20110918102335.1202: *5* Commutable
+            [testGroup "Commutable"
+                -- @+others
+                -- @+node:gcross.20110918102335.1221: *6* Operator
+                [testGroup "Operator"
+                    -- @+others
+                    -- @+node:gcross.20110918102335.1223: *7* correct property
+                    [testProperty "correct property" $ \(x :: Operator Word8, y :: Operator Word8) → commute x y /= antiCommute x y
+                    -- @+node:gcross.20110918102335.1222: *7* correct result
+                    ,testProperty "correct result" $ do
+                        n ← choose(0,8)
+                        components1 :: [Pauli] ← vector n
+                        components2 :: [Pauli] ← vector n
+                        return $
+                            commute (fromPauliList components1 :: Operator Word8) (fromPauliList components2)
+                            ==
+                            (length (filter id (zipWith antiCommute components1 components2)) `mod` 2 == 0)
+                    -- @-others
+                    ]
+                -- @+node:gcross.20110918102335.1213: *6* Pauli
+                ,testGroup "Pauli"
+                    -- @+others
+                    -- @+node:gcross.20110918102335.1215: *7* correct property
+                    [testProperty "correct property" $ \(x :: Pauli, y :: Pauli) → commute x y /= antiCommute x y
+                    -- @+node:gcross.20110918102335.1204: *7* correct result
+                    ,testCase "correct result" $ do
+                        assertBool "[I,I]" $ commute I I
 
-                assertEqual "X*I=X" X (X `mappend` I)
-                assertEqual "X*X=I" I (X `mappend` X)
-                assertEqual "X*Y=Z" Z (X `mappend` Y)
-                assertEqual "X*Z=Y" Y (X `mappend` Z)
+                        assertBool "[I,X]" $ commute I X
+                        assertBool "[I,Y]" $ commute I Y
+                        assertBool "[I,Z]" $ commute I Z
 
-                assertEqual "Y*I=Y" Y (Y `mappend` I)
-                assertEqual "Y*X=Z" Z (Y `mappend` X)
-                assertEqual "Y*Y=I" I (Y `mappend` Y)
-                assertEqual "Y*Z=X" X (Y `mappend` Z)
+                        assertBool "[X,I]" $ commute X I
+                        assertBool "[Y,I]" $ commute Y I
+                        assertBool "[Z,I]" $ commute Z I
 
-                assertEqual "Z*I=Z" Z (Z `mappend` I)
-                assertEqual "Z*X=Y" Y (Z `mappend` X)
-                assertEqual "Z*Y=X" X (Z `mappend` Y)
-                assertEqual "Z*Z=I" I (Z `mappend` Z)
-            -- @+node:gcross.20110918102335.1187: *5* Operator
-            ,testProperty "Operator" $ do
-                n ← choose(0,8)
-                components1 :: [Pauli] ← vector n
-                components2 :: [Pauli] ← vector n
-                return $
-                    (fromPauliList components1 `mappend` fromPauliList components2)
-                    ==
-                    (fromPauliList (zipWith mappend components1 components2) :: Operator Word8)
+                        assertBool "[X,X]" $ commute X X
+                        assertBool "[Y,Y]" $ commute Y Y
+                        assertBool "[Z,Z]" $ commute Z Z
+
+                        assertBool "[X,Y]" $ antiCommute X Y
+                        assertBool "[Y,Z]" $ antiCommute Y Z
+                        assertBool "[Z,X]" $ antiCommute Z X
+
+                        assertBool "[Z,Y]" $ antiCommute Z Y
+                        assertBool "[Y,X]" $ antiCommute Y X
+                        assertBool "[X,Z]" $ antiCommute X Z
+                    -- @-others
+                    ]
+                -- @-others
+                ]
+            -- @+node:gcross.20110918102335.1185: *5* Monoid
+            ,testGroup "Monoid"
+                -- @+others
+                -- @+node:gcross.20110918102335.1187: *6* Operator
+                [testProperty "Operator" $ do
+                    n ← choose(0,8)
+                    components1 :: [Pauli] ← vector n
+                    components2 :: [Pauli] ← vector n
+                    return $
+                        (fromPauliList components1 `mappend` fromPauliList components2)
+                        ==
+                        (fromPauliList (zipWith mappend components1 components2) :: Operator Word8)
+                -- @+node:gcross.20110918102335.1186: *6* Pauli
+                ,testCase "Pauli" $ do
+                    assertEqual "I*I=I" I (I `mappend` I)
+                    assertEqual "I*X=X" X (I `mappend` X)
+                    assertEqual "I*Y=Y" Y (I `mappend` Y)
+                    assertEqual "I*Z=Z" Z (I `mappend` Z)
+
+                    assertEqual "X*I=X" X (X `mappend` I)
+                    assertEqual "X*X=I" I (X `mappend` X)
+                    assertEqual "X*Y=Z" Z (X `mappend` Y)
+                    assertEqual "X*Z=Y" Y (X `mappend` Z)
+
+                    assertEqual "Y*I=Y" Y (Y `mappend` I)
+                    assertEqual "Y*X=Z" Z (Y `mappend` X)
+                    assertEqual "Y*Y=I" I (Y `mappend` Y)
+                    assertEqual "Y*Z=X" X (Y `mappend` Z)
+
+                    assertEqual "Z*I=Z" Z (Z `mappend` I)
+                    assertEqual "Z*X=Y" Y (Z `mappend` X)
+                    assertEqual "Z*Y=X" X (Z `mappend` Y)
+                    assertEqual "Z*Z=I" I (Z `mappend` Z)
+                -- @-others
+                ]
             -- @-others
             ]
         -- @-others
