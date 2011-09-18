@@ -8,6 +8,7 @@
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE UnicodeSyntax #-}
+{-# LANGUAGE ViewPatterns #-}
 -- @-<< Language extensions >>
 
 module Data.Quantum.Operator where
@@ -16,7 +17,7 @@ module Data.Quantum.Operator where
 -- @+node:gcross.20110724213035.1161: ** << Import needed modules >>
 import Control.Applicative (liftA2)
 
-import Data.Bits (Bits((.&.),shiftL,shiftR,testBit,xor))
+import Data.Bits (Bits((.&.),setBit,shiftL,shiftR,testBit,xor))
 import Data.Foldable (foldl') -- ' (the quote is a dumb syntax highlighting bug workaround)
 import Data.Function (on)
 import qualified Data.IntMap as IntMap
@@ -78,15 +79,15 @@ countBits = go 0
     go accum x = go (if x .&. 1 == 0 then accum else accum + 1) (shiftR x 1)
 -- @+node:gcross.20110724213035.1196: *3* fromPauliList
 fromPauliList :: Bits α ⇒ [Pauli] → Operator α
-fromPauliList = go 0 0
+fromPauliList = go 0 0 0
   where
-    go :: Bits α ⇒ α → α → [Pauli] → Operator α
-    go ox oz [] = Operator ox oz
-    go ox oz (pauli:rest) = go (shiftL ox 1 + px) (shiftL oz 1 + pz) rest
-      where
-        pn = fromIntegral (fromEnum pauli)
-        px = pn .&. 1
-        pz = shiftR pn 1
+    go :: Bits α ⇒ Int → α → α → [Pauli] → Operator α
+    go i ox oz [] = Operator ox oz
+    go i ox oz ((fromEnum → pn):rest) =
+        go  (i+1)
+            (if pn .&. 1 /= 0 then setBit ox i else ox)
+            (if pn .&. 2 /= 0 then setBit oz i else oz)
+            rest
 -- @+node:gcross.20110911234057.1165: *3* maybeFirstNonTrivialColumnOf
 maybeFirstNonTrivialColumnOf :: Bits α ⇒ Operator α → Maybe Int
 maybeFirstNonTrivialColumnOf (Operator 0 0) = Nothing
@@ -109,11 +110,8 @@ nonTrivialAt :: Bits α ⇒ Int → Operator α → Bool
 nonTrivialAt i (Operator x z) = testBit x i || testBit z i
 -- @+node:gcross.20110724213035.1199: *3* toPauliList
 toPauliList :: (Integral α, Bits α) ⇒ Int → Operator α → [Pauli]
-toPauliList n (Operator x z) = go n x z []
-  where
-    go :: (Integral α, Bits α) ⇒ Int → α → α → [Pauli] → [Pauli]
-    go 0 _ _ accum = accum
-    go n 0 0 accum = replicate n I ++ accum
-    go n x z accum = go (n-1) (shiftR x 1) (shiftR z 1) ((toEnum . fromIntegral $ ((x .&. 1) + (shiftL (z .&. 1) 1))) : accum)
+toPauliList 0 _ = []
+toPauliList n (Operator 0 0) = replicate n I
+toPauliList n (Operator x z) = toEnum (fromIntegral (x .&. 1 + shiftL (z .&. 1) 1)) : toPauliList (n-1) (Operator (shiftR x 1) (shiftR z 1))
 -- @-others
 -- @-leo

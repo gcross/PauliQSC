@@ -31,6 +31,15 @@ import Data.Quantum.Operator.ReducedEschelonForm
 -- @+node:gcross.20110918102335.1183: ** Instances
 -- @+node:gcross.20110918102335.1184: *3* Arbitrary Pauli
 instance Arbitrary Pauli where arbitrary = elements [I,X,Y,Z]
+-- @+node:gcross.20110918102335.1195: *3* Arbitrary Operator
+instance Bits α ⇒ Arbitrary (Operator α) where
+    arbitrary =
+        fmap fromPauliList
+             (resize (bitSize (undefined :: α)) (listOf arbitrary))
+-- @+node:gcross.20110918102335.1197: ** Functions
+-- @+node:gcross.20110918102335.1198: *3* generateOperator
+generateOperator :: Bits α ⇒ Int → Gen (Operator α)
+generateOperator = fmap fromPauliList . vector
 -- @-others
 
 main = defaultMain
@@ -51,7 +60,7 @@ main = defaultMain
                 -- @+node:gcross.20110918102335.1172: *6* identity
                 [testCase "identity" $ forM_ [0..8] $ \n → Operator 0 (0 :: Word8) @=? fromPauliList (replicate n I)
                 -- @+node:gcross.20110918102335.1177: *6* IXYZ
-                ,testCase "IXYZ" $ Operator 6 (3 :: Word8) @=? fromPauliList [I,X,Y,Z]
+                ,testCase "IXYZ" $ Operator 6 (12 :: Word8) @=? fromPauliList [I,X,Y,Z]
                 -- @+node:gcross.20110918102335.1180: *6* . toPauliList = identity function
                 ,testProperty ". toPauliList = identity function" $ do
                     n ← choose(0,8)
@@ -68,7 +77,7 @@ main = defaultMain
                 -- @+node:gcross.20110918102335.1176: *6* identity
                 [testCase "identity" $ forM_ [0..8] $ \n → toPauliList n (Operator 0 (0 :: Word8)) @?= replicate n I
                 -- @+node:gcross.20110918102335.1179: *6* IXYZ
-                ,testCase "IXYZ" $ toPauliList 4 (Operator 6 (3 :: Word8)) @?= [I,X,Y,Z]
+                ,testCase "IXYZ" $ toPauliList 4 (Operator 6 (12 :: Word8)) @?= [I,X,Y,Z]
                 -- @+node:gcross.20110918102335.1182: *6* . fromPauliList = identity function
                 ,testProperty ". fromPauliList = identity function" $ do
                     n ← choose(0,8)
