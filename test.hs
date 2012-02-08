@@ -26,6 +26,14 @@ import Data.Quantum.Operator.ReducedEschelonForm
 
 -- }}} Imports
 
+-- Types {{{
+
+data OperatorAndSize α = OperatorAndSize (Operator α) Int deriving (Eq,Show)
+
+data OperatorAndSizeAndIndex α = OperatorAndSizeAndIndex (Operator α) Int Int deriving (Eq,Show)
+
+-- }}} Types
+
 -- Instances {{{
 
 instance Arbitrary Pauli where arbitrary = elements [I,X,Y,Z]
@@ -36,12 +44,31 @@ instance Bits α ⇒ Arbitrary (Operator α) where -- {{{
              (resize (bitSize (undefined :: α)) (listOf arbitrary))
 -- }}}
 
+instance Bits α ⇒ Arbitrary (OperatorAndSize α) where -- {{{
+    arbitrary = do
+        n ← choose (0,bitSize (undefined :: α))
+        o ← generateOperatorOfSize n
+        return $ OperatorAndSize o n
+-- }}}
+
+instance Bits α ⇒ Arbitrary (OperatorAndSizeAndIndex α) where -- {{{
+    arbitrary = do
+        n ← choose (1,bitSize (undefined :: α))
+        i ← choose (0,n-1)
+        o ← generateOperatorOfSize n
+        return $ OperatorAndSizeAndIndex o n i
+-- }}}
+
 -- }}} Instances
 
 -- Functions {{{
 
-generateOperator :: Bits α ⇒ Int → Gen (Operator α) -- {{{
-generateOperator = fmap fromPauliList . vector
+generateOperatorOfSize :: Bits α ⇒ Int → Gen (Operator α) -- {{{
+generateOperatorOfSize n =
+    let upper_bound = bit n - 1
+    in liftM2 Operator
+        (fmap fromIntegral $ choose (0,upper_bound :: Int))
+        (fmap fromIntegral $ choose (0,upper_bound))
 -- }}}
 
 -- }}} Functions
@@ -72,13 +99,8 @@ main = defaultMain
             ,testGroup "fromPauliList" -- {{{
                 [testCase "identity" $ forM_ [0..8] $ \n → Operator 0 (0 :: Word8) @=? fromPauliList (replicate n I)
                 ,testCase "IXYZ" $ Operator 6 (12 :: Word8) @=? fromPauliList [I,X,Y,Z]
-                ,testProperty ". toPauliList = identity function" $ do -- {{{
-                    n ← choose(0,8)
-                    let upper_bound = bit n - 1
-                    op :: Operator Word8 ← liftM2 Operator
-                            (fmap fromIntegral $ choose (0,upper_bound :: Int))
-                            (fmap fromIntegral $ choose (0,upper_bound))
-                    return $ liftA2 (==) id (fromPauliList . toPauliList n) op
+                ,testProperty ". toPauliList = identity function" $ \(OperatorAndSize (op :: Operator Word16) n) → -- {{{
+                    liftA2 (==) id (fromPauliList . toPauliList n) op
                  -- }}}
                 ]
              -- }}}
@@ -115,11 +137,8 @@ main = defaultMain
                     multiplyByIfAntiCommuteAt i operator1 operator2
                  == if antiCommuteAt i operator1 operator2 then (operator1 `mappend` operator2) else operator2
              -- }}}
-            ,testProperty "nonTrivialAt" $ do -- {{{
-                n ← choose (1,8)
-                o :: Operator Word8 ← generateOperator n
-                i ← choose (0,n-1)
-                return $ nonTrivialAt i o == (toPauliList n o !! i /= I)
+            ,testProperty "nonTrivialAt" $ \(OperatorAndSizeAndIndex (o :: Operator Word16) n i) → -- {{{
+                nonTrivialAt i o == (toPauliList n o !! i /= I)
              -- }}}
             ,testGroup "toPauliList" -- {{{
                 [testCase "identity" $ forM_ [0..8] $ \n → toPauliList n (Operator 0 (0 :: Word8)) @?= replicate n I
