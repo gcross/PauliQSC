@@ -1,6 +1,3 @@
--- @+leo-ver=5-thin
--- @+node:gcross.20110724213035.1122: * @file PauliQSC.cabal
--- @@language haskell
 Name:                PauliQSC
 Version:             1.0
 License:             BSD3
