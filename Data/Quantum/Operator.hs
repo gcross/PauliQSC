@@ -14,7 +14,7 @@ module Data.Quantum.Operator where
 
 import Control.Applicative (liftA2)
 
-import Data.Bits (Bits((.&.),setBit,shiftL,shiftR,testBit,xor))
+import Data.Bits (Bits((.&.),clearBit,setBit,shiftL,shiftR,testBit,xor))
 import Data.Foldable (foldl')
 import Data.Function (on)
 import qualified Data.IntMap as IntMap
@@ -107,6 +107,28 @@ fromPauliList = go 0 0 0
             rest
 -- }}}
 
+getPauliAt :: Bits α ⇒ Int → Operator α → Pauli -- {{{
+getPauliAt column (Operator x z) =
+    case (testBit x column, testBit z column) of
+        (False,False) → I
+        (True ,False) → X
+        (False,True ) → Z
+        (True ,True ) → Y
+-- }}}
+
+hasXBit, hasZBit :: Pauli → Bool -- {{{
+
+hasXBit I = False
+hasXBit X = True
+hasXBit Z = False
+hasXBit Y = True
+
+hasZBit I = False
+hasZBit X = False
+hasZBit Z = True
+hasZBit Y = True
+-- }}}
+
 maybeFirstNonTrivialColumnOf :: Bits α ⇒ Operator α → Maybe Int -- {{{
 maybeFirstNonTrivialColumnOf (Operator 0 0) = Nothing
 maybeFirstNonTrivialColumnOf (Operator x z) = Just (go 0 x z)
@@ -129,6 +151,13 @@ multiplyByIfAntiCommuteAt column a b = multiplyByIf (antiCommuteAt column a b) a
 
 nonTrivialAt :: Bits α ⇒ Int → Operator α → Bool -- {{{
 nonTrivialAt i (Operator x z) = testBit x i || testBit z i
+-- }}}
+
+setPauliAt :: Bits α ⇒ Int → Pauli → Operator α → Operator α -- {{{
+setPauliAt column I (Operator x z) = Operator (clearBit x column) (clearBit z column)
+setPauliAt column X (Operator x z) = Operator (setBit   x column) (clearBit z column)
+setPauliAt column Z (Operator x z) = Operator (clearBit x column) (setBit   z column)
+setPauliAt column Y (Operator x z) = Operator (setBit   x column) (setBit   z column)
 -- }}}
 
 toPauliList :: (Integral α, Bits α) ⇒ Int → Operator α → [Pauli] -- {{{

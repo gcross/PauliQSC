@@ -104,6 +104,14 @@ main = defaultMain
                  -- }}}
                 ]
              -- }}}
+            ,testProperty "getPauliAt" $ \(OperatorAndSizeAndIndex (o :: Operator Word16) n i) → -- {{{
+                getPauliAt i o == (toPauliList n o) !! i
+             -- }}}
+            ,testCase "has(X/Z)Bit" $ -- {{{
+                forM_ [I .. Y] $ \pauli → do
+                    hasXBit pauli @?= (testBit (fromEnum pauli) 0)
+                    hasZBit pauli @?= (testBit (fromEnum pauli) 1)
+             -- }}}
             ,testGroup "maybeFirstNonTrivialColumnOf" -- {{{
                 [testCase "identity" $ -- {{{
                     forM_ [0..8] $ \(n :: Int) →
@@ -139,6 +147,9 @@ main = defaultMain
              -- }}}
             ,testProperty "nonTrivialAt" $ \(OperatorAndSizeAndIndex (o :: Operator Word16) n i) → -- {{{
                 nonTrivialAt i o == (toPauliList n o !! i /= I)
+             -- }}}
+            ,testProperty "setPauliAt" $ \(OperatorAndSizeAndIndex (o :: Operator Word16) _ i) (p :: Pauli) → -- {{{
+                    (getPauliAt i . setPauliAt i p) o == p
              -- }}}
             ,testGroup "toPauliList" -- {{{
                 [testCase "identity" $ forM_ [0..8] $ \n → toPauliList n (Operator 0 (0 :: Word8)) @?= replicate n I
