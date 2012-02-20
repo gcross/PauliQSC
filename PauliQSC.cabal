@@ -16,7 +16,8 @@ Library
         base == 4.*,
         containers == 0.4.*
     Exposed-modules:
-        Data.Quantum.Operator
+        Data.Quantum.Operator,
+        Data.Quantum.Operator.ReducedEschelonForm
     Extensions:
 
 Test-Suite test

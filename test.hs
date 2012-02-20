@@ -11,6 +11,8 @@ import Control.Applicative
 import Control.Monad
 
 import Data.Bits
+import qualified Data.IntMap as IntMap
+import Data.IntMap (IntMap)
 import Data.Maybe
 import Data.Monoid
 import Data.Word
@@ -243,5 +245,22 @@ main = defaultMain
          -- }}}
         ]
      -- }}} Data.Quantum.Operator
+    ,testGroup "Data.Quantum.Operator.ReducedEschelonForm" -- {{{
+        [testProperty "adding one operator always succeeds if non-trivial and fails if trivial" $ -- {{{
+            \(op :: Operator Word8) →
+                if op == mempty
+                then
+                    let (ReducedEschelonForm new_form,success) = addToReducedEschelonFormWithSuccessTag op mempty
+                    in not success
+                    && IntMap.null new_form
+                    && Nothing == maybeFirstNonTrivialColumnOf op 
+                else
+                    let (ReducedEschelonForm new_form,success) = addToReducedEschelonFormWithSuccessTag op mempty
+                    in success
+                    && IntMap.size new_form == 1
+                    && Just (head (IntMap.keys new_form)) == maybeFirstNonTrivialColumnOf op 
+         -- }}}
+        ]
+     -- }}} Data.Quantum.Operator.ReducedEschelonForm
     ]
     -- }}} Tests
