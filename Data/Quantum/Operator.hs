@@ -62,7 +62,7 @@ instance Bits α ⇒ Commutable (Operator α) where
 -- }}} Operator
 
 -- Pauli {{{
-data Pauli = I | X | Z | Y deriving (Eq,Show,Read,Enum)
+data Pauli = I | X | Z | Y deriving (Eq,Ord,Show,Read,Enum)
 
 instance Monoid Pauli where
     mempty = I
