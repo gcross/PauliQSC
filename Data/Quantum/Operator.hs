@@ -75,20 +75,23 @@ instance Bits α ⇒ Show (Operator α) where
 -- Pauli {{{
 data Pauli = I | X | Z | Y deriving (Eq,Ord,Read,Enum)
 
-instance Monoid Pauli where
 instance Show Pauli where -- {{{
     show = (:[]) . pauliToChar
     showList [] s = s
     showList (p:rest) s = pauliToChar p : showList rest s
 -- }}}
 
+instance Monoid Pauli where -- {{{
     mempty = I
     mappend a b = toEnum (fromEnum a `xor` fromEnum b)
+-- }}}
 
-instance Commutable Pauli where
+instance Commutable Pauli where -- {{{
     commute I _ = True
     commute _ I = True
     commute x y = x == y
+-- }}}
+
 -- Pauli }}}
 
 -- }}} Types
