@@ -1,6 +1,8 @@
 -- Language extensions {{{
 
 {-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TupleSections #-}
 {-# LANGUAGE ViewPatterns #-}
 {-# LANGUAGE UnicodeSyntax #-}
 
@@ -10,7 +12,7 @@ module Data.Quantum.Operator.ReducedEschelonForm where
 
 -- Imports {{{
 
-import Control.Arrow (first)
+import Control.Arrow (first,second)
 import Control.Monad (MonadPlus(..))
 
 import Data.Bits
@@ -26,13 +28,17 @@ import Data.Quantum.Operator
 
 -- Types {{{
 
-data PseudoGenerator α = PseudoGenerator -- {{{
-    {   pgo1 :: Operator α
-    ,   maybe_pgo2 :: Maybe (Operator α)
-    }
+data PseudoGenerator α = -- {{{
+    PGX (Operator α)
+  | PGZ (Operator α)
+  | PGXZ (Operator α) (Operator α)
+  deriving (Eq,Ord,Show)
 -- }}}
 
-newtype ReducedEschelonForm α = ReducedEschelonForm { unwrapReducedEschelonForm :: IntMap (PseudoGenerator α) }
+newtype ReducedEschelonForm α = -- {{{
+    ReducedEschelonForm { unwrapReducedEschelonForm :: IntMap (PseudoGenerator α) }
+    deriving (Eq,Ord,Show)
+-- }}}
 
 -- }}} Types
 
@@ -40,34 +46,7 @@ newtype ReducedEschelonForm α = ReducedEschelonForm { unwrapReducedEschelonForm
 
 instance Bits α => Monoid (ReducedEschelonForm α) where -- {{{
     mempty = ReducedEschelonForm mempty
-    x `mappend` y = -- {{{
-        new_form
-      where
-        splitSingletsFromDoublets =
-            IntMap.mapEither (\x@(PseudoGenerator pg1 maybe_pg2) →
-                case maybe_pg2 of
-                    Nothing → Left pg1
-                    Just pg2 → Right x
-            )
-            .
-            unwrapReducedEschelonForm
-        (x_singlets, x_doublets) = splitSingletsFromDoublets x
-        (y_singlets, y_doublets) = splitSingletsFromDoublets y
-
-        leftover_doublets = x_doublets `IntMap.difference` y_doublets
-        partial_form = ReducedEschelonForm (x_doublets `IntMap.union` y_doublets)
-
-        leftover_operators = concat $
-            IntMap.elems x_singlets
-           :IntMap.elems y_singlets
-           :map operatorsInPseudoGenerator (IntMap.elems leftover_doublets)
-
-        new_form =
-            foldl'
-                (flip addToReducedEschelonForm)
-                partial_form
-                leftover_operators
-    -- }}}
+    x `mappend` y = addAllToReducedEschelonForm (operatorsInReducedEschelonForm y) x
 -- }}}
 
 -- }}} Instances
@@ -78,44 +57,73 @@ addToReducedEschelonForm :: Bits α ⇒ Operator α → ReducedEschelonForm α �
 addToReducedEschelonForm op form = fst (addToReducedEschelonFormWithSuccessTag op form)
 -- }}}
 
-addToReducedEschelonFormWithSuccessTag :: Bits α ⇒ Operator α → ReducedEschelonForm α → (ReducedEschelonForm α, Bool) -- {{{
-addToReducedEschelonFormWithSuccessTag original_operator (ReducedEschelonForm original_form) =
-    first ReducedEschelonForm (go original_operator (IntMap.toList original_form))
+addAllToReducedEschelonForm :: Bits α ⇒ [Operator α] → ReducedEschelonForm α → ReducedEschelonForm α -- {{{
+addAllToReducedEschelonForm operators form =
+    foldl'
+        (flip addToReducedEschelonForm)
+        form
+        operators
+-- }}}
+
+addToReducedEschelonFormWithSuccessTag :: forall α. Bits α ⇒ Operator α → ReducedEschelonForm α → (ReducedEschelonForm α, Bool) -- {{{
+addToReducedEschelonFormWithSuccessTag original_operator original_form = (new_form,not contained)
   where
-    go (Operator 0 0) _ = (original_form, False)
-    go o [] = (IntMap.insert (fromJust $ maybeFirstNonTrivialColumnOf o) (PseudoGenerator o Nothing) original_form, True)
-    go o ((column,PseudoGenerator{..}):rest) =
-        case maybe_pgo2 of
-            Just pgo2 →
-                go  (multiplyByIfAntiCommuteAt column pgo2
-                     .
-                     multiplyByIfAntiCommuteAt column pgo1
-                     $
-                     o
-                    )
-                    rest
-            Nothing →
-                let new_o = multiplyByIfAntiCommuteAt column pgo1 o
-                in if nonTrivialAt column new_o
-                    then
-                        (flip (IntMap.insert column) original_form
-                         .
-                         PseudoGenerator pgo1
-                         .
-                         Just
-                         .
-                         orthogonalizeWithPseudoGenerators rest
-                         $
-                         new_o
-                        ,True
-                        )
-                    else
-                        go new_o rest
+    op = orthogonalizeWithReducedEschelonForm original_form original_operator
+    contained = isIdentity op
+    new_form
+     | contained = original_form
+     | otherwise = go (IntMap.assocs . unwrapReducedEschelonForm $ original_form)
+
+    addToForm :: Int → PseudoGenerator α → ReducedEschelonForm α
+    addToForm column new_pseudo_generator =
+        ReducedEschelonForm
+        .
+        IntMap.insert column new_pseudo_generator
+        .
+        IntMap.map (mapPseudoGenerator $ orthogonalizeWithPseudoGeneratorAt column new_pseudo_generator)
+        .
+        IntMap.delete column
+        .
+        unwrapReducedEschelonForm
+        $
+        original_form
+
+    go [] =
+        let first_non_trivial_column = fromJust $ maybeFirstNonTrivialColumnOf op
+        in addToForm
+            first_non_trivial_column
+            (makeSingletonPseudoGeneratorFromColumn first_non_trivial_column op)
+    go ((column,pseudo_generator):rest)
+     | trivialAt column op = go rest
+     | otherwise = addToForm column $ case pseudo_generator of
+        PGX opx
+          | hasZBitAt column opx → PGXZ (opx `mappend` op) op
+          | otherwise → PGXZ opx op
+        PGZ opz
+          | hasXBitAt column opz → PGXZ op (opz `mappend` op)
+          | otherwise → PGXZ op opz
+        PGXZ _ _ → error $ "pseudo-generator " ++ show pseudo_generator ++ " failed to make operator " ++ show original_operator ++ " trivial at column " ++ show column ++ ";  instead the result was " ++ show op
+-- }}}
+
+mapPseudoGenerator :: (Operator α → Operator α) → PseudoGenerator α → PseudoGenerator α -- {{{
+mapPseudoGenerator f (PGX op) = PGX (f op)
+mapPseudoGenerator f (PGZ op) = PGZ (f op)
+mapPseudoGenerator f (PGXZ opx opz) = PGXZ (f opx) (f opz)
+-- }}}
+
+makeSingletonPseudoGeneratorFromColumn :: Bits α ⇒ Int → Operator α → PseudoGenerator α -- {{{
+makeSingletonPseudoGeneratorFromColumn column op =
+    case getPauliAt column op of
+        X → PGX op
+        Y → PGX op
+        Z → PGZ op
+        _ → error $ "tried to make a pseudo-generator using trivial column " ++ show column ++ " of operator " ++ show op
 -- }}}
 
 operatorsInPseudoGenerator :: PseudoGenerator α → [Operator α] -- {{{
-operatorsInPseudoGenerator (PseudoGenerator pgo1 Nothing) = [pgo1]
-operatorsInPseudoGenerator (PseudoGenerator pgo1 (Just pgo2)) = [pgo1,pgo2]
+operatorsInPseudoGenerator (PGX op) = [op]
+operatorsInPseudoGenerator (PGZ op) = [op]
+operatorsInPseudoGenerator (PGXZ opx opz) = [opx,opz]
 -- }}}
 
 operatorsInReducedEschelonForm :: ReducedEschelonForm α → [Operator α] -- {{{
@@ -128,14 +136,16 @@ operatorsInReducedEschelonForm =
 -- }}}
 
 orthogonalizeWithPseudoGenerators :: Bits α ⇒ [(Int,PseudoGenerator α)] → Operator α → Operator α -- {{{
-orthogonalizeWithPseudoGenerators = flip $ foldl' (flip (uncurry orthogonalizeWithPseudoGeneratorAt))
+orthogonalizeWithPseudoGenerators _ op@(Operator 0 0) = op
+orthogonalizeWithPseudoGenerators [] op = op
+orthogonalizeWithPseudoGenerators ((column,pseudo_generator):rest) op =
+    orthogonalizeWithPseudoGenerators rest (orthogonalizeWithPseudoGeneratorAt column pseudo_generator op)
 -- }}}
 
 orthogonalizeWithPseudoGeneratorAt :: Bits α ⇒ Int → PseudoGenerator α → Operator α → Operator α -- {{{
-orthogonalizeWithPseudoGeneratorAt column PseudoGenerator{..} =
-    maybe id (multiplyByIfAntiCommuteAt column) maybe_pgo2 
-    .
-    multiplyByIfAntiCommuteAt column pgo1
+orthogonalizeWithPseudoGeneratorAt column (PGX op) = multiplyByIfHasXBitAt column op
+orthogonalizeWithPseudoGeneratorAt column (PGZ op) = multiplyByIfHasZBitAt column op
+orthogonalizeWithPseudoGeneratorAt column (PGXZ ox oz) = multiplyByIfHasXZBitAt column ox oz
 -- }}}
 
 orthogonalizeWithReducedEschelonForm :: Bits α ⇒ ReducedEschelonForm α → Operator α → Operator α -- {{{

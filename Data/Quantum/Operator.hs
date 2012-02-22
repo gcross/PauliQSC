@@ -98,6 +98,12 @@ instance Commutable Pauli where -- {{{
 
 -- Functions {{{
 
+agreeAt :: Bits α ⇒ Int → Operator α → Operator α → Bool -- {{{
+agreeAt i a b =
+    (testBit (operatorX a) i == testBit (operatorX b) i) &&
+    (testBit (operatorZ a) i == testBit (operatorZ b) i)
+-- }}}
+
 -- commuteAt/antiCommuteAt {{{
 commuteAt :: Bits α ⇒ Int → Operator α → Operator α → Bool
 commuteAt i a b = not (antiCommuteAt i a b)
@@ -149,6 +155,12 @@ hasZBit Z = True
 hasZBit Y = True
 -- }}}
 
+hasXBitAt, hasZBitAt :: Bits α ⇒ Int → Operator α → Bool -- {{{
+
+hasXBitAt column (Operator x _) = testBit x column
+hasZBitAt column (Operator _ z) = testBit z column
+-- }}}
+
 maybeFirstNonTrivialColumnOf :: Bits α ⇒ Operator α → Maybe Int -- {{{
 maybeFirstNonTrivialColumnOf (Operator 0 0) = Nothing
 maybeFirstNonTrivialColumnOf (Operator x z) = Just (go 0 x z)
@@ -169,8 +181,46 @@ multiplyByIfAntiCommuteAt :: Bits α ⇒ Int → Operator α → Operator α →
 multiplyByIfAntiCommuteAt column a b = multiplyByIf (antiCommuteAt column a b) a b
 -- }}}
 
-nonTrivialAt :: Bits α ⇒ Int → Operator α → Bool -- {{{
+multiplyByIfAgreeAt :: Bits α ⇒ Int → Operator α → Operator α → Operator α -- {{{
+multiplyByIfAgreeAt column a b = multiplyByIf (agreeAt column a b) a b
+-- }}}
+
+-- multiplyByIfHas(X/Z/XZ)BitAt {{{
+multiplyByIfHasXBitAt :: Bits α ⇒ Int → Operator α → Operator α → Operator α
+multiplyByIfHasXBitAt column a b = multiplyByIf (hasXBitAt column b) a b
+
+multiplyByIfHasZBitAt :: Bits α ⇒ Int → Operator α → Operator α → Operator α
+multiplyByIfHasZBitAt column a b = multiplyByIf (hasZBitAt column b) a b
+
+multiplyByIfHasXZBitAt :: Bits α ⇒ Int → Operator α → Operator α → Operator α → Operator α
+multiplyByIfHasXZBitAt column x_op z_op =
+    multiplyByIfHasXBitAt column x_op
+    .
+    multiplyByIfHasZBitAt column z_op
+-- }}}
+
+pauliToChar :: Pauli → Char -- {{{
+pauliToChar I = 'I'
+pauliToChar X = 'X'
+pauliToChar Z = 'Z'
+pauliToChar Y = 'Y'
+-- }}}
+
+isIdentity :: Num α ⇒ Operator α → Bool -- {{{
+isIdentity (Operator 0 0) = True
+isIdentity _ = False
+-- }}}
+
+isNotIdentity :: Num α ⇒ Operator α → Bool -- {{{
+isNotIdentity = not . isIdentity
+-- }}}
+
+-- nonTrivialAt / trivialAt -- {{{
+nonTrivialAt :: Bits α ⇒ Int → Operator α → Bool
 nonTrivialAt i (Operator x z) = testBit x i || testBit z i
+
+trivialAt :: Bits α ⇒ Int → Operator α → Bool
+trivialAt i = not . nonTrivialAt i
 -- }}}
 
 setPauliAt :: Bits α ⇒ Int → Pauli → Operator α → Operator α -- {{{
@@ -180,10 +230,10 @@ setPauliAt column Z (Operator x z) = Operator (clearBit x column) (setBit   z co
 setPauliAt column Y (Operator x z) = Operator (setBit   x column) (setBit   z column)
 -- }}}
 
-toPauliList :: (Integral α, Bits α) ⇒ Int → Operator α → [Pauli] -- {{{
+toPauliList :: Bits α ⇒ Int → Operator α → [Pauli] -- {{{
 toPauliList 0 _ = []
 toPauliList n (Operator 0 0) = replicate n I
-toPauliList n (Operator x z) = toEnum (fromIntegral (x .&. 1 + shiftL (z .&. 1) 1)) : toPauliList (n-1) (Operator (shiftR x 1) (shiftR z 1))
+toPauliList n op@(Operator x z) = getPauliAt 0 op : toPauliList (n-1) (Operator (shiftR x 1) (shiftR z 1))
 -- }}}
 
 -- }}}

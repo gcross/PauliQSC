@@ -1,5 +1,6 @@
 -- Language extensions {{{
 
+{-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE UnicodeSyntax #-}
 
@@ -11,17 +12,26 @@ import Control.Applicative
 import Control.Monad
 
 import Data.Bits
+import Data.Function (on)
 import qualified Data.IntMap as IntMap
 import Data.IntMap (IntMap)
+import Data.List (delete,subsequences,sort)
 import Data.Maybe
 import Data.Monoid
+import qualified Data.Set as Set
 import Data.Word
+
+import System.IO.Unsafe (unsafePerformIO)
+
+import Text.Printf
 
 import Test.Framework
 import Test.Framework.Providers.HUnit
 import Test.Framework.Providers.QuickCheck2
 import Test.HUnit
 import Test.QuickCheck
+
+import Debug.Trace
 
 import Data.Quantum.Operator
 import Data.Quantum.Operator.ReducedEschelonForm
@@ -65,6 +75,15 @@ instance Bits α ⇒ Arbitrary (OperatorAndSizeAndIndex α) where -- {{{
 
 -- Functions {{{
 
+assertNotEqual :: (Eq a, Show a) => String -- ^ The message prefix 
+                                 -> a      -- ^ The expected value 
+                                 -> a      -- ^ The actual value
+                                 -> Assertion
+assertNotEqual preface expected actual =
+  when (actual == expected) (assertFailure msg)
+ where msg = (if null preface then "" else preface ++ "\n") ++
+             "expected to *not* get: " ++ show expected ++ "\n"
+
 generateOperatorOfSize :: Bits α ⇒ Int → Gen (Operator α) -- {{{
 generateOperatorOfSize n =
     let upper_bound = bit n - 1
@@ -79,7 +98,11 @@ main = defaultMain
     -- Tests {{{
     [testGroup "Data.Quantum.Operator" -- {{{
         [testGroup "Functions" $ -- {{{
-            [testProperty "antiCommuteAt" $ do -- {{{
+            [testProperty "agreeAt" $ \(o1 :: Operator Word8) (o2 :: Operator Word8) → do -- {{{
+                i ← choose (0,7)
+                return $ agreeAt i o1 o2 == (getPauliAt i o1 == getPauliAt i o2)
+             -- }}}
+            ,testProperty "antiCommuteAt" $ do -- {{{
                 n ← choose (1,8)
                 components1 :: [Pauli] ← vector n
                 components2 :: [Pauli] ← vector n
@@ -246,7 +269,7 @@ main = defaultMain
         ]
      -- }}} Data.Quantum.Operator
     ,testGroup "Data.Quantum.Operator.ReducedEschelonForm" -- {{{
-        [testProperty "adding one operator always succeeds if non-trivial and fails if trivial" $ -- {{{
+        [testProperty "add one operator to an empty form" $ -- {{{
             \(op :: Operator Word8) →
                 if op == mempty
                 then
@@ -259,6 +282,105 @@ main = defaultMain
                     in success
                     && IntMap.size new_form == 1
                     && Just (head (IntMap.keys new_form)) == maybeFirstNonTrivialColumnOf op 
+         -- }}}
+        ,testProperty "add two operators with non-trivial first bit to an empty form" $ -- {{{
+            \(o1_ :: Operator Word8) (o2_ :: Operator Word8) → do
+                p1 ← elements [X,Y,Z]
+                p2 ← elements (delete p1 [X,Y,Z])
+                let o1 = setPauliAt 0 p1 o1_
+                    o2 = setPauliAt 0 p2 o2_
+                    (form1,success1) = addToReducedEschelonFormWithSuccessTag o1_ mempty
+                    (form2,success2) = addToReducedEschelonFormWithSuccessTag o2_ form1
+                return . const True . unsafePerformIO $ do
+                    assertBool "first addition was successful" success1
+                    assertEqual "size of form after first addition is correct" 1 (IntMap.size (unwrapReducedEschelonForm form1))
+                    assertBool "second addition was succesful" success1
+                    assertEqual "size of form after second addition is correct" 1 (IntMap.size (unwrapReducedEschelonForm form2))
+                    let pseudo_generator = (head . IntMap.elems . unwrapReducedEschelonForm $ form2)
+                    case pseudo_generator of
+                        PGXZ (Operator xx xz) (Operator zx zz) → do
+                            assertBool "pseudo-generator x op have a 1 bit at column 0 of its x component" (testBit xx 0)
+                            assertBool "pseudo-generator x op have a 0 bit at column 0 of its z component" (testBit xz 0)
+                            assertBool "pseudo-generator z op have a 0 bit at column 0 of its z component" (testBit zx 0)
+                            assertBool "pseudo-generator z op have a 1 bit at column 0 of its x component" (testBit zz 0)
+                        _ → assertFailure $ "pseudo-generator has incorrect form: " ++ show pseudo_generator
+         -- }}}
+        ,testProperty "add the same operator twice" $ -- {{{
+            \(o :: Operator Word8) → o /= mempty ==>
+                let form1 = addToReducedEschelonForm o mempty
+                    (form2,successful) = addToReducedEschelonFormWithSuccessTag o form1
+                in form1 == form2 && not successful
+         -- }}}
+        ,testProperty "every pseudo-generator is independent of all others in its assigned column" $ -- {{{
+         \(operators :: [Operator Word8]) →
+            let ReducedEschelonForm form = addAllToReducedEschelonForm operators mempty
+            in unsafePerformIO . (>> return True) $
+                forM_ (IntMap.assocs form) $ \(i,pg1) →
+                    forM_ (IntMap.assocs . IntMap.delete i $ form) $ \(j,pg2) →
+                        forM_ (operatorsInPseudoGenerator pg1) $ \op1 →
+                            forM_ (operatorsInPseudoGenerator pg2) $ \op2 →
+                                assertBool
+                                    ("is the pseudo-generator at column " ++ show i ++ " independent from the pseudo-generator at column " ++ show j ++ "? (" ++ show op1 ++ " * " ++ show op2 ++ ")")
+                                    (nonTrivialAt i (op1 `mappend` op2))
+         -- }}}
+        ,testProperty "every pseudo-generator has the correct paulis in the assigned column" $ -- {{{
+          \(operators :: [Operator Word8]) →
+            let ReducedEschelonForm form = addAllToReducedEschelonForm operators mempty
+            in unsafePerformIO . (>> return True) $ do
+                forM_ (IntMap.assocs form) $ \(column,pseudo_generator) → do
+                    case pseudo_generator of
+                        PGX op →
+                            assertBool
+                                ("pseudo-generator at column " ++ show column ++ " has X bit set")
+                                (hasXBitAt column op)
+                        PGZ op →
+                            assertBool
+                                ("pseudo-generator at column " ++ show column ++ " has Z bit set")
+                                (hasZBitAt column op)
+                        PGXZ opx opz → do
+                            assertEqual
+                                ("case PGXZ, X operator, for pseudo-generator at column " ++ show column)
+                                X
+                                (getPauliAt column opx)
+                            assertEqual
+                                ("case PGXZ, Z operator, for pseudo-generator at column " ++ show column)
+                                Z
+                                (getPauliAt column opz)
+         -- }}}
+        ,testProperty "adding a previously seen operator always fails" $ -- {{{
+          \(operators_ :: [Operator Word8]) (operator :: Operator Word8) → do
+            pos ← choose (0,length operators_)
+            let (l,r) = splitAt pos operators_
+                operators = l ++ [operator] ++ r
+                form = addAllToReducedEschelonForm operators mempty
+            operator ← elements operators
+            let (new_form, successful) = addToReducedEschelonFormWithSuccessTag operator form 
+            return . unsafePerformIO . (>> return True) $ do
+                assertEqual "Is the new form the same as the old form?" form new_form
+                assertBool "Was the addition reported as being unsuccessful" (not successful)
+         -- }}}
+        ,testProperty "the pseudo-generators generate the same set as the original operators" $ do -- {{{
+            n ← choose (0,8)
+            operators :: [Operator Word8] ← vectorOf n arbitrary
+            let form = addAllToReducedEschelonForm operators mempty
+            return . unsafePerformIO . (>> return True) $
+                (on
+                    (assertEqual "Does the reduced eschelon form generate the same set as the original?")
+                    (Set.fromList . map mconcat . subsequences)
+                )
+                    operators 
+                    (operatorsInReducedEschelonForm form)
+         -- }}}
+        ,testProperty "the mappend function results in a form that generates the same set of operators" $ do -- {{{
+            form1 ← fmap (flip addAllToReducedEschelonForm mempty) (choose (0,4) >>= flip vectorOf (arbitrary :: Gen (Operator Word8)))
+            form2 ← fmap (flip addAllToReducedEschelonForm mempty) (choose (0,4) >>= flip vectorOf (arbitrary :: Gen (Operator Word8)))
+            return . unsafePerformIO . (>> return True) $
+                (on
+                    (assertEqual "Does the reduced eschelon form generate the same set as the original?")
+                    (Set.fromList . map mconcat . subsequences)
+                )
+                    (operatorsInReducedEschelonForm form1 `mappend` operatorsInReducedEschelonForm form2)
+                    (operatorsInReducedEschelonForm (form1 `mappend` form2))
          -- }}}
         ]
      -- }}} Data.Quantum.Operator.ReducedEschelonForm
