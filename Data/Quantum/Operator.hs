@@ -14,7 +14,7 @@ module Data.Quantum.Operator where
 
 import Control.Applicative (liftA2)
 
-import Data.Bits (Bits((.&.),clearBit,setBit,shiftL,shiftR,testBit,xor))
+import Data.Bits (Bits((.&.),bitSize,clearBit,setBit,shiftL,shiftR,testBit,xor))
 import Data.Foldable (foldl')
 import Data.Function (on)
 import qualified Data.IntMap as IntMap
@@ -42,7 +42,7 @@ class Commutable α where
 data Operator α = Operator
     {   operatorX :: !α
     ,   operatorZ :: !α
-    } deriving (Eq,Show,Read)
+    } deriving (Eq,Ord)
 
 instance Bits α ⇒ Monoid (Operator α) where
     mempty = Operator 0 0
@@ -59,6 +59,17 @@ instance Bits α ⇒ Commutable (Operator α) where
         ( countBits (operatorX a .&. operatorZ b)
         + countBits (operatorX b .&. operatorZ a)
         ) `mod` 2 == 0
+
+instance Bits α ⇒ Show (Operator α) where
+    show o@(Operator x z) = show (toPauliList maximum_bit o)
+      where
+        maximum_bit = go (bitSize x)
+          where
+            go 0 = 0
+            go n
+             | testBit x (n-1) || testBit z (n-1) = n
+             | otherwise = go (n-1)
+
 -- }}} Operator
 
 -- Pauli {{{
