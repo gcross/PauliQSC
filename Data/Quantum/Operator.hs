@@ -62,9 +62,15 @@ instance Bits α ⇒ Commutable (Operator α) where
 -- }}} Operator
 
 -- Pauli {{{
-data Pauli = I | X | Z | Y deriving (Eq,Ord,Show,Read,Enum)
+data Pauli = I | X | Z | Y deriving (Eq,Ord,Read,Enum)
 
 instance Monoid Pauli where
+instance Show Pauli where -- {{{
+    show = (:[]) . pauliToChar
+    showList [] s = s
+    showList (p:rest) s = pauliToChar p : showList rest s
+-- }}}
+
     mempty = I
     mappend a b = toEnum (fromEnum a `xor` fromEnum b)
 
