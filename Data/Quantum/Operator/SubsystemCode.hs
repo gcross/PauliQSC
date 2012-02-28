@@ -127,7 +127,7 @@ initialSubsystemCode number_of_physical_qubits = SubsystemCode{..}
 -- }}}
 
 numberOfMeasurementOperatorsInCode :: SubsystemCode α → Int -- {{{
-numberOfMeasurementOperatorsInCode SubsystemCode{..} = subsystemCodeStabilizersCount + subsystemCodeGaugeQubitsCount
+numberOfMeasurementOperatorsInCode SubsystemCode{..} = subsystemCodeStabilizersCount + 2*subsystemCodeGaugeQubitsCount
 -- }}}
 
 numberOfPhysicalQubitsInCode :: SubsystemCode α → Int -- {{{

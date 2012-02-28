@@ -543,6 +543,54 @@ main = defaultMain
                 assertEqual "number of gauge qubits" 0 subsystemCodeGaugeQubitsCount
                 assertEqual "number of logical qubits" (number_of_physical_qubits-1) subsystemCodeLogicalQubitsCount
          -- }}}
+        ,testProperty "adding two anti-commuting operators" $ do -- {{{
+            number_of_physical_qubits ← choose (1,16)
+            op1 :: Operator Word16 ← generateNonTrivialOperatorOfSize number_of_physical_qubits
+            let go = do
+                    op2 ← generateNonTrivialOperatorOfSize number_of_physical_qubits
+                    if antiCommute op1 op2
+                        then return op2
+                        else go
+            op2 ← go
+            let (code@SubsystemCode{..},success) =
+                    addToSubsystemCodeWithSuccessTag op2
+                    .
+                    addToSubsystemCode op1
+                    .
+                    initialSubsystemCode
+                    $
+                    number_of_physical_qubits
+            return . unsafePerformIO . (True <$) $ do
+                assertBool "success of adding operator to the code" success
+                validateCode number_of_physical_qubits code
+                assertEqual "number of stabilizers" 0 subsystemCodeStabilizersCount
+                assertEqual "number of gauge qubits" 1 subsystemCodeGaugeQubitsCount
+                assertEqual "number of logical qubits" (number_of_physical_qubits-1) subsystemCodeLogicalQubitsCount
+         -- }}}
+        ,testProperty "adding two commuting operators" $ do -- {{{
+            number_of_physical_qubits ← choose (2,16)
+            op1 :: Operator Word16 ← generateNonTrivialOperatorOfSize number_of_physical_qubits
+            let go = do
+                    op2 ← generateNonTrivialOperatorOfSize number_of_physical_qubits
+                    if commute op1 op2 && op1 /= op2
+                        then return op2
+                        else go
+            op2 ← go
+            let (code@SubsystemCode{..},success) =
+                    addToSubsystemCodeWithSuccessTag op2
+                    .
+                    addToSubsystemCode op1
+                    .
+                    initialSubsystemCode
+                    $
+                    number_of_physical_qubits
+            return . unsafePerformIO . (True <$) $ do
+                assertBool "success of adding operator to the code" success
+                validateCode number_of_physical_qubits code
+                assertEqual "number of stabilizers" 2 subsystemCodeStabilizersCount
+                assertEqual "number of gauge qubits" 0 subsystemCodeGaugeQubitsCount
+                assertEqual "number of logical qubits" (number_of_physical_qubits-2) subsystemCodeLogicalQubitsCount
+         -- }}}
         ]
      -- }}} Data.Quantum.Operator.SubsystemCode
     ]
