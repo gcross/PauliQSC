@@ -16,11 +16,12 @@ import Control.Arrow (first,second)
 import Control.Monad (MonadPlus(..))
 
 import Data.Bits
+import qualified Data.Foldable as Fold
 import Data.IntMap (IntMap)
 import qualified Data.IntMap as IntMap
 import Data.List (foldl')
 import Data.Maybe (fromJust)
-import Data.Monoid (Monoid(..))
+import Data.Monoid (Monoid(..),Sum(..))
 
 import Data.Quantum.Operator
 
@@ -118,6 +119,25 @@ makeSingletonPseudoGeneratorFromColumn column op =
         Y → PGX op
         Z → PGZ op
         _ → error $ "tried to make a pseudo-generator using trivial column " ++ show column ++ " of operator " ++ show op
+-- }}}
+
+numberOfOperatorsInPseudoGenerator :: PseudoGenerator α → Int -- {{{
+numberOfOperatorsInPseudoGenerator (PGX _) = 1
+numberOfOperatorsInPseudoGenerator (PGZ _) = 1
+numberOfOperatorsInPseudoGenerator (PGXZ _ _) = 2
+-- }}}
+
+numberOfOperatorsInReducedEschelonForm :: ReducedEschelonForm α → Int -- {{{
+numberOfOperatorsInReducedEschelonForm =
+    getSum
+    .
+    Fold.foldMap (
+        Sum
+        .
+        numberOfOperatorsInPseudoGenerator
+    )
+    .
+    unwrapReducedEschelonForm
 -- }}}
 
 operatorsInPseudoGenerator :: PseudoGenerator α → [Operator α] -- {{{

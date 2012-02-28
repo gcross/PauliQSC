@@ -1,7 +1,9 @@
 -- Language extensions {{{
 
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE UnicodeSyntax #-}
 
 -- }}} Language extensions
@@ -13,6 +15,7 @@ import Control.Monad
 
 import Data.Bits
 import Data.Function (on)
+import Data.Functor ((<$))
 import qualified Data.IntMap as IntMap
 import Data.IntMap (IntMap)
 import Data.List (delete,subsequences,sort)
@@ -34,11 +37,15 @@ import Test.QuickCheck
 import Debug.Trace
 
 import Data.Quantum.Operator
+import Data.Quantum.Operator.Qubit
 import Data.Quantum.Operator.ReducedEschelonForm
+import Data.Quantum.Operator.SubsystemCode
 
 -- }}} Imports
 
 -- Types {{{
+
+data NonTrivialOperatorAndSize α = NonTrivialOperatorAndSize (Operator α) Int deriving (Eq)
 
 data OperatorAndSize α = OperatorAndSize (Operator α) Int deriving (Eq,Show)
 
@@ -48,7 +55,16 @@ data OperatorAndSizeAndIndex α = OperatorAndSizeAndIndex (Operator α) Int Int 
 
 -- Instances {{{
 
+-- Arbitrary {{{
+
 instance Arbitrary Pauli where arbitrary = elements [I,X,Y,Z]
+
+instance Bits α ⇒ Arbitrary (NonTrivialOperatorAndSize α) where -- {{{
+    arbitrary = do
+        n ← choose (1,bitSize (undefined :: α))
+        o ← generateNonTrivialOperatorOfSize n
+        return $ NonTrivialOperatorAndSize o n
+-- }}}
 
 instance Bits α ⇒ Arbitrary (Operator α) where -- {{{
     arbitrary =
@@ -71,18 +87,51 @@ instance Bits α ⇒ Arbitrary (OperatorAndSizeAndIndex α) where -- {{{
         return $ OperatorAndSizeAndIndex o n i
 -- }}}
 
+-- }}} Arbitrary
+
+instance Show (Operator α) ⇒ Show (NonTrivialOperatorAndSize α) where
+    show (NonTrivialOperatorAndSize op size) = printf ("[size = %i, operator = '%s']") size (show op)
+
 -- }}} Instances
 
 -- Functions {{{
 
-assertNotEqual :: (Eq a, Show a) => String -- ^ The message prefix 
-                                 -> a      -- ^ The expected value 
+assertAntiCommute :: Bits α ⇒ String → Operator α → Operator α → Assertion -- {{{
+assertAntiCommute message a b =
+    assertBool
+        (message ++ " {" ++ show a ++ "," ++ show b ++ "}")
+        (antiCommute a b)
+-- }}}
+
+assertCommute :: Bits α ⇒ String → Operator α → Operator α → Assertion -- {{{
+assertCommute message a b =
+    assertBool
+        (message ++ " [" ++ show a ++ "," ++ show b ++ "]")
+        (commute a b)
+-- }}}
+
+assertNotEqual :: (Eq a, Show a) => String -- ^ The message prefix -- {{{
+                                 -> a      -- ^ The expected value
                                  -> a      -- ^ The actual value
                                  -> Assertion
 assertNotEqual preface expected actual =
   when (actual == expected) (assertFailure msg)
  where msg = (if null preface then "" else preface ++ "\n") ++
              "expected to *not* get: " ++ show expected ++ "\n"
+-- }}}
+
+generateNonTrivialOperatorOfSize :: Bits α ⇒ Int → Gen (Operator α) -- {{{
+generateNonTrivialOperatorOfSize 0 = error "it is impossible to generate a non-trivial operator of size zero"
+generateNonTrivialOperatorOfSize n =
+    let upper_bound = bit n - 1
+        go = do
+            x ← choose (0,upper_bound::Int)
+            z ← choose (0,upper_bound::Int)
+            if (x == 0) && (z == 0)
+            then go
+            else return (fromIntegral x,fromIntegral z)
+    in fmap (uncurry Operator) go
+-- }}}
 
 generateOperatorOfSize :: Bits α ⇒ Int → Gen (Operator α) -- {{{
 generateOperatorOfSize n =
@@ -90,6 +139,101 @@ generateOperatorOfSize n =
     in liftM2 Operator
         (fmap fromIntegral $ choose (0,upper_bound :: Int))
         (fmap fromIntegral $ choose (0,upper_bound))
+-- }}}
+
+validateCode number_of_physical_qubits code@SubsystemCode{..} = do -- {{{
+  -- Check that all the cached counts are valid {{{
+    assertEqual
+        "number of stabilizers matches cached count"
+        (length subsystemCodeStabilizers)
+        subsystemCodeStabilizersCount
+    assertEqual
+        "number of gauge qubits matches cached count"
+        (length subsystemCodeGaugeQubits)
+        subsystemCodeGaugeQubitsCount
+    assertEqual
+        "number of logical qubits matches cached count"
+        (length subsystemCodeLogicalQubits)
+        subsystemCodeLogicalQubitsCount
+    assertEqual
+        "number of physical qubits in the code is valid"
+        number_of_physical_qubits
+        (numberOfPhysicalQubitsInCode code)
+  -- }}}
+  -- Check that the stabilizers commute with all other operators {{{
+    forM_ subsystemCodeStabilizers $ \stabilizer → do
+        forM_ subsystemCodeStabilizers $ \other_stabilizer → do
+            assertCommute
+                "stabilizers"
+                stabilizer
+                other_stabilizer
+        forM_ all_qubit_operators $ \(qubit_type,_,opname,op) →
+                assertCommute
+                    ("stabilizer with " ++ qubit_type ++ " qubit's " ++ opname ++ " operator")
+                    stabilizer
+                    op
+  -- }}}
+  -- Check that each qubit is a pair of anti-commuting operators {{{
+    forM_ all_qubits $ \(qubit_type, qubit_index, Qubit x z) →
+        assertAntiCommute
+            (printf "%ith %s qubit" qubit_index qubit_type)
+            x z
+  -- }}}
+  -- Check that the qubits all commute -- {{{
+    sequence $
+        [assertCommute
+            (printf
+                "%ith %s qubit with %ith %s qubit"
+                qubit_index_1 qubit_type_1
+                qubit_index_2 qubit_type_2
+            )
+            op1
+            op2
+        |(qubit_type_1,qubit_index_1,opname1,op1) ← all_qubit_operators
+        ,(qubit_type_2,qubit_index_2,opname2,op2) ← all_qubit_operators
+        ,qubit_type_1 /= qubit_type_2 || qubit_index_1 /= qubit_index_2
+        ]
+  -- }}}
+  -- Check that every measurement operator is in the reduced eschelon form {{{
+    forM_ (zip [(0::Int)..] subsystemCodeStabilizers) $ \(i,stabilizer) →
+        assertEqual
+            (printf "%ith stabilizer (%s) is in the reduced eschelon form" i (show stabilizer))
+            mempty
+            (orthogonalizeWithMeasurements stabilizer)
+    forM_ gauge_qubit_operators $ \(qubit_type,qubit_index,opname,op) →
+        assertEqual
+            (printf "%s operator of %ith %s qubit (%s) is in the reduced eschelon form" opname qubit_index qubit_type (show op))
+            mempty
+            (orthogonalizeWithMeasurements op)
+    assertEqual
+        "number of operators in the reduced eschelon form"
+        (numberOfMeasurementOperatorsInCode code)
+        (numberOfOperatorsInReducedEschelonForm subsystemCodeMeasurements)
+  -- }}}
+  -- Check that every logical qubit operator is *not* in the reduced eschelon form {{{
+    forM_ logical_qubit_operators $ \(qubit_type,qubit_index,opname,op) →
+        assertNotEqual
+            (printf "%s operator of %ith %s qubit (%s) is in the reduced eschelon form" opname qubit_index qubit_type (show op))
+            mempty
+            (orthogonalizeWithMeasurements op)
+  -- }}}
+  where
+    tagQubits qubit_type qubits = zip3 (repeat qubit_type) [(0::Int)..] qubits
+    gauge_qubits = tagQubits "gauge" subsystemCodeGaugeQubits
+    logical_qubits = tagQubits "logical" subsystemCodeLogicalQubits
+    all_qubits = gauge_qubits ++ logical_qubits
+
+    gatherQubitOperators qubits = -- {{{
+        [ (qubit_type, qubit_index, opname, op)
+        | (qubit_type, qubit_index, Qubit x z) ← qubits
+        , (opname, op) ← [("X",x),("Z",z)]
+        ]
+    -- }}}
+    gauge_qubit_operators = gatherQubitOperators gauge_qubits
+    logical_qubit_operators = gatherQubitOperators logical_qubits
+    all_qubit_operators = gauge_qubit_operators ++ logical_qubit_operators
+
+    orthogonalizeWithMeasurements op = orthogonalizeWithReducedEschelonForm subsystemCodeMeasurements op
 -- }}}
 
 -- }}} Functions
@@ -384,5 +528,22 @@ main = defaultMain
          -- }}}
         ]
      -- }}} Data.Quantum.Operator.ReducedEschelonForm
+    ,testGroup "Data.Quantum.Operator.SubsystemCode" -- {{{
+        [testProperty "initialSubsystemCode" $ do -- {{{
+            number_of_physical_qubits ← choose (1,16)
+            let code = initialSubsystemCode number_of_physical_qubits :: SubsystemCode Word16
+            return . unsafePerformIO . (True <$) $ validateCode number_of_physical_qubits code
+         -- }}}
+        ,testProperty "adding one operator" $ \(NonTrivialOperatorAndSize op number_of_physical_qubits :: NonTrivialOperatorAndSize Word16) → -- {{{
+            unsafePerformIO . (True <$) $ do
+                let (code@SubsystemCode{..},success) = addToSubsystemCodeWithSuccessTag op (initialSubsystemCode number_of_physical_qubits)
+                assertBool "success of adding operator to the code" success
+                validateCode number_of_physical_qubits code
+                assertEqual "number of stabilizers" 1 subsystemCodeStabilizersCount
+                assertEqual "number of gauge qubits" 0 subsystemCodeGaugeQubitsCount
+                assertEqual "number of logical qubits" (number_of_physical_qubits-1) subsystemCodeLogicalQubitsCount
+         -- }}}
+        ]
+     -- }}} Data.Quantum.Operator.SubsystemCode
     ]
     -- }}} Tests

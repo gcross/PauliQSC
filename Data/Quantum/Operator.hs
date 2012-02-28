@@ -181,6 +181,10 @@ multiplyByIfAntiCommuteAt :: Bits α ⇒ Int → Operator α → Operator α →
 multiplyByIfAntiCommuteAt column a b = multiplyByIf (antiCommuteAt column a b) a b
 -- }}}
 
+multiplyByIfAntiCommuteWith :: Bits α ⇒ Operator α → Operator α → Operator α → Operator α -- {{{
+multiplyByIfAntiCommuteWith multiplier commuter op = multiplyByIf (antiCommute commuter op) multiplier op
+-- }}}
+
 multiplyByIfAgreeAt :: Bits α ⇒ Int → Operator α → Operator α → Operator α -- {{{
 multiplyByIfAgreeAt column a b = multiplyByIf (agreeAt column a b) a b
 -- }}}
