@@ -38,6 +38,11 @@ data SubsystemCode α = SubsystemCode
 -- Functions {{{
 
 
+addAllToSubsystemCode :: Bits α ⇒ [Operator α] → SubsystemCode α → SubsystemCode α -- {{{
+addAllToSubsystemCode [] = id
+addAllToSubsystemCode (operator:rest) = addAllToSubsystemCode rest . addToSubsystemCode operator
+-- }}}
+
 addToSubsystemCode :: Bits α ⇒ Operator α → SubsystemCode α → SubsystemCode α -- {{{
 addToSubsystemCode op code = fst (addToSubsystemCodeWithSuccessTag op code)
 -- }}}

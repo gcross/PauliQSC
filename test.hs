@@ -591,6 +591,27 @@ main = defaultMain
                 assertEqual "number of gauge qubits" 0 subsystemCodeGaugeQubitsCount
                 assertEqual "number of logical qubits" (number_of_physical_qubits-2) subsystemCodeLogicalQubitsCount
          -- }}}
+        ,testGroup "construction from random sets of operators preserves code validity" $
+            let test :: Bits α ⇒ α → [Operator α] → Bool
+                test ignored operators =
+                    unsafePerformIO
+                    .
+                    (True <$)
+                    .
+                    validateCode number_of_physical_qubits
+                    .
+                    addAllToSubsystemCode operators
+                    .
+                    initialSubsystemCode
+                    $
+                    number_of_physical_qubits
+                  where
+                    number_of_physical_qubits = bitSize ignored
+            in  [testProperty "Word8"  (test (0::Word8 ))
+                ,testProperty "Word16" (test (0::Word16))
+                ,testProperty "Word32" (test (0::Word32))
+                ]
+             -- }}}
         ]
      -- }}} Data.Quantum.Operator.SubsystemCode
     ]
