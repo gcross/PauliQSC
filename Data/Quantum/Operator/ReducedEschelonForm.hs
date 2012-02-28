@@ -16,11 +16,11 @@ import Control.Arrow (first,second)
 import Control.Monad (MonadPlus(..))
 
 import Data.Bits
+import Data.IntMap (IntMap)
+import qualified Data.IntMap as IntMap
 import Data.List (foldl')
 import Data.Maybe (fromJust)
 import Data.Monoid (Monoid(..))
-import Data.IntMap (IntMap)
-import qualified Data.IntMap as IntMap
 
 import Data.Quantum.Operator
 
