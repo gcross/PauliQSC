@@ -106,6 +106,10 @@ addToReducedEschelonFormWithSuccessTag original_operator original_form = (new_fo
         PGXZ _ _ → error $ "pseudo-generator " ++ show pseudo_generator ++ " failed to make operator " ++ show original_operator ++ " trivial at column " ++ show column ++ ";  instead the result was " ++ show op
 -- }}}
 
+constructReducedEschelonForm :: Bits α ⇒ [Operator α] → ReducedEschelonForm α -- {{{
+constructReducedEschelonForm = flip addAllToReducedEschelonForm mempty
+-- }}}
+
 mapPseudoGenerator :: (Operator α → Operator α) → PseudoGenerator α → PseudoGenerator α -- {{{
 mapPseudoGenerator f (PGX op) = PGX (f op)
 mapPseudoGenerator f (PGZ op) = PGZ (f op)
