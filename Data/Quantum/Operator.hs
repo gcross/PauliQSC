@@ -60,6 +60,23 @@ instance Bits α ⇒ Commutable (Operator α) where
         + countBits (operatorX b .&. operatorZ a)
         ) `mod` 2 == 0
 
+instance Bits α ⇒ Read (Operator α) where -- {{{
+    readsPrec _ "" = [(Operator 0 0,"")]
+    readsPrec _ text = go1 [] text
+      where
+        go1 accum ('I':rest) = go1 (I:accum) rest
+        go1 accum ('X':rest) = go1 (X:accum) rest
+        go1 accum ('Z':rest) = go1 (Z:accum) rest
+        go1 accum ('Y':rest) = go1 (Y:accum) rest
+        go1 accum remainder = go2 accum remainder
+
+        go2 accum@(p:rest) remainder =
+            (fromPauliList . reverse $ accum,remainder)
+            :
+            go2 rest (pauliToChar p:remainder)
+        go2 [] remainder = []
+-- }}}
+
 instance Bits α ⇒ Show (Operator α) where
     show o@(Operator x z) = show (toPauliList maximum_bit o)
       where

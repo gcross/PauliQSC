@@ -409,6 +409,10 @@ main = defaultMain
                  -- }}}
                 ]
              -- }}}
+            ,testGroup "Read" -- {{{
+                [testProperty "Operator" $ \(op :: Operator Word8) → (read . show) op == op
+                ]
+             -- }}}
             ]
          -- }}}
         ]
