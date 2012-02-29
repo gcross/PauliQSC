@@ -13,6 +13,7 @@ module Data.Quantum.Operator.ReducedEschelonForm where
 -- Imports {{{
 
 import Control.Arrow (first,second)
+import Control.DeepSeq (NFData())
 import Control.Monad (MonadPlus(..))
 
 import Data.Bits
@@ -50,6 +51,8 @@ instance Bits α => Monoid (ReducedEschelonForm α) where -- {{{
     mempty = ReducedEschelonForm mempty
     x `mappend` y = addAllToReducedEschelonForm (operatorsInReducedEschelonForm y) x
 -- }}}
+
+instance NFData (ReducedEschelonForm α)
 
 -- }}} Instances
 

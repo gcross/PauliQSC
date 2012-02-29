@@ -10,6 +10,7 @@ module Data.Quantum.Operator.SubsystemCode where
 -- Imports {{{
 
 import Control.Arrow ((***))
+import Control.DeepSeq (NFData(..))
 
 import Data.Bits (Bits(),bit)
 import Data.List (foldl')
@@ -35,6 +36,13 @@ data SubsystemCode α = SubsystemCode
     } deriving (Eq,Ord,Show)
 
 -- }}} Types
+
+-- Instances {{{
+
+instance NFData (SubsystemCode α) where
+    rnf (SubsystemCode a b c d e f g) = a `seq` b `seq` c `seq` d `seq` e `seq` f `seq` g `seq` ()
+
+-- }}}
 
 -- Functions {{{
 
