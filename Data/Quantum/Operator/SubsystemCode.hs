@@ -14,6 +14,7 @@ import Control.Arrow ((***))
 import Data.Bits (Bits(),bit)
 import Data.List (foldl')
 import Data.Monoid (mempty)
+import Data.Word
 
 import Data.Quantum.Operator
 import Data.Quantum.Operator.Qubit
@@ -40,10 +41,20 @@ data SubsystemCode α = SubsystemCode
 addAllToSubsystemCode :: Bits α ⇒ [Operator α] → SubsystemCode α → SubsystemCode α -- {{{
 addAllToSubsystemCode [] = id
 addAllToSubsystemCode (operator:rest) = addAllToSubsystemCode rest . addToSubsystemCode operator
+{-# SPECIALIZE addAllToSubsystemCode :: [Operator Word8] → SubsystemCode Word8 → SubsystemCode Word8 #-}
+{-# SPECIALIZE addAllToSubsystemCode :: [Operator Word16] → SubsystemCode Word16 → SubsystemCode Word16 #-}
+{-# SPECIALIZE addAllToSubsystemCode :: [Operator Word32] → SubsystemCode Word32 → SubsystemCode Word32 #-}
+{-# SPECIALIZE addAllToSubsystemCode :: [Operator Word64] → SubsystemCode Word64 → SubsystemCode Word64 #-}
+{-# SPECIALIZE addAllToSubsystemCode :: [Operator Integer] → SubsystemCode Integer → SubsystemCode Integer #-}
 -- }}}
 
 addToSubsystemCode :: Bits α ⇒ Operator α → SubsystemCode α → SubsystemCode α -- {{{
 addToSubsystemCode op code = fst (addToSubsystemCodeWithSuccessTag op code)
+{-# SPECIALIZE addToSubsystemCode :: Operator Word8 → SubsystemCode Word8 → SubsystemCode Word8 #-}
+{-# SPECIALIZE addToSubsystemCode :: Operator Word16 → SubsystemCode Word16 → SubsystemCode Word16 #-}
+{-# SPECIALIZE addToSubsystemCode :: Operator Word32 → SubsystemCode Word32 → SubsystemCode Word32 #-}
+{-# SPECIALIZE addToSubsystemCode :: Operator Word64 → SubsystemCode Word64 → SubsystemCode Word64 #-}
+{-# SPECIALIZE addToSubsystemCode :: Operator Integer → SubsystemCode Integer → SubsystemCode Integer #-}
 -- }}}
 
 addToSubsystemCodeWithSuccessTag :: Bits α ⇒ Operator α → SubsystemCode α → (SubsystemCode α,Bool) -- {{{
@@ -116,6 +127,20 @@ addToSubsystemCodeWithSuccessTag op old_code@SubsystemCode{..} =
                                 (_,False) → new_logical_qubits ++ map (multiplyQubitByIfAntiCommuteWith z op_commuting_with_gauge_qubits) rest
                 $
                 subsystemCodeLogicalQubits
+{-# SPECIALIZE addToSubsystemCodeWithSuccessTag :: Operator Word8 → SubsystemCode Word8 → (SubsystemCode Word8, Bool) #-}
+{-# SPECIALIZE addToSubsystemCodeWithSuccessTag :: Operator Word16 → SubsystemCode Word16 → (SubsystemCode Word16, Bool) #-}
+{-# SPECIALIZE addToSubsystemCodeWithSuccessTag :: Operator Word32 → SubsystemCode Word32 → (SubsystemCode Word32, Bool) #-}
+{-# SPECIALIZE addToSubsystemCodeWithSuccessTag :: Operator Word64 → SubsystemCode Word64 → (SubsystemCode Word64, Bool) #-}
+{-# SPECIALIZE addToSubsystemCodeWithSuccessTag :: Operator Integer → SubsystemCode Integer → (SubsystemCode Integer, Bool) #-}
+-- }}}
+
+constructSubsystemCodeFromMeasurements :: Bits α ⇒ Int → [Operator α] → SubsystemCode α -- {{{
+constructSubsystemCodeFromMeasurements number_of_physical_qubits operators = addAllToSubsystemCode operators (initialSubsystemCode number_of_physical_qubits)
+{-# SPECIALIZE constructSubsystemCodeFromMeasurements :: Int → [Operator Word8] → SubsystemCode Word8 #-}
+{-# SPECIALIZE constructSubsystemCodeFromMeasurements :: Int → [Operator Word16] → SubsystemCode Word16 #-}
+{-# SPECIALIZE constructSubsystemCodeFromMeasurements :: Int → [Operator Word32] → SubsystemCode Word32 #-}
+{-# SPECIALIZE constructSubsystemCodeFromMeasurements :: Int → [Operator Word64] → SubsystemCode Word64 #-}
+{-# SPECIALIZE constructSubsystemCodeFromMeasurements :: Int → [Operator Integer] → SubsystemCode Integer #-}
 -- }}}
 
 initialSubsystemCode :: Bits α ⇒ Int → SubsystemCode α -- {{{
@@ -128,6 +153,11 @@ initialSubsystemCode number_of_physical_qubits = SubsystemCode{..}
     subsystemCodeGaugeQubitsCount = 0
     subsystemCodeLogicalQubits = [Qubit (Operator (bit i) 0) (Operator 0 (bit i)) | i ← [0..number_of_physical_qubits-1]]
     subsystemCodeLogicalQubitsCount = number_of_physical_qubits 
+{-# SPECIALIZE initialSubsystemCode :: Int → SubsystemCode Word8 #-}
+{-# SPECIALIZE initialSubsystemCode :: Int → SubsystemCode Word16 #-}
+{-# SPECIALIZE initialSubsystemCode :: Int → SubsystemCode Word32 #-}
+{-# SPECIALIZE initialSubsystemCode :: Int → SubsystemCode Word64 #-}
+{-# SPECIALIZE initialSubsystemCode :: Int → SubsystemCode Integer #-}
 -- }}}
 
 numberOfMeasurementOperatorsInCode :: SubsystemCode α → Int -- {{{
