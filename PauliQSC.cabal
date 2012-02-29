@@ -17,7 +17,9 @@ Library
         containers == 0.4.*
     Exposed-modules:
         Data.Quantum.Operator,
+        Data.Quantum.Operator.Qubit,
         Data.Quantum.Operator.ReducedEschelonForm
+        Data.Quantum.Operator.SubsystemCode
     Extensions:
 
 Test-Suite test
@@ -28,4 +30,5 @@ Test-Suite test
         HUnit == 1.2.*,
         test-framework >= 0.4 && < 0.6,
         test-framework-hunit == 0.2.*,
-        test-framework-quickcheck2 == 0.2.*
+        test-framework-quickcheck2 == 0.2.*,
+        QuickCheck == 2.4.*

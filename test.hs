@@ -128,8 +128,8 @@ generateNonTrivialOperatorOfSize n =
             x ← choose (0,upper_bound::Int)
             z ← choose (0,upper_bound::Int)
             if (x == 0) && (z == 0)
-            then go
-            else return (fromIntegral x,fromIntegral z)
+                then go
+                else return (fromIntegral x,fromIntegral z)
     in fmap (uncurry Operator) go
 -- }}}
 
