@@ -37,7 +37,6 @@ data SubsystemCode α = SubsystemCode
 
 -- Functions {{{
 
-
 addAllToSubsystemCode :: Bits α ⇒ [Operator α] → SubsystemCode α → SubsystemCode α -- {{{
 addAllToSubsystemCode [] = id
 addAllToSubsystemCode (operator:rest) = addAllToSubsystemCode rest . addToSubsystemCode operator
