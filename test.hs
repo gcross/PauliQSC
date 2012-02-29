@@ -347,7 +347,7 @@ main = defaultMain
                      -- }}}
                     ]
                  -- }}}
-                ,testGroup "Pauli"
+                ,testGroup "Pauli" -- {{{
                     [testProperty "correct property" $ \(x :: Pauli, y :: Pauli) → commute x y /= antiCommute x y
                     ,testCase "correct result" $ do -- {{{
                         assertBool "[I,I]" $ commute I I
@@ -373,6 +373,7 @@ main = defaultMain
                         assertBool "[X,Z]" $ antiCommute X Z
                      -- }}}
                     ]
+                 -- }}}
                 ]
              -- }}}
             ,testGroup "Monoid" -- {{{
