@@ -32,9 +32,9 @@ import Data.Quantum.Small.Operator
 -- Types {{{
 
 data PseudoGenerator = -- {{{
-    PGX !Operator
-  | PGZ !Operator
-  | PGXZ !Operator !Operator
+    PGX {-# UNPACK #-} !Operator
+  | PGZ {-# UNPACK #-} !Operator
+  | PGXZ {-# UNPACK #-} !Operator {-# UNPACK #-} !Operator
   deriving (Eq,Ord,Show)
 -- }}}
 
@@ -60,6 +60,7 @@ instance NFData ReducedEschelonForm
 
 addToReducedEschelonForm :: Operator → ReducedEschelonForm → ReducedEschelonForm -- {{{
 addToReducedEschelonForm op form = fst (addToReducedEschelonFormWithSuccessTag op form)
+{-# INLINE addToReducedEschelonForm #-}
 -- }}}
 
 addAllToReducedEschelonForm :: [Operator] → ReducedEschelonForm → ReducedEschelonForm -- {{{
@@ -68,6 +69,7 @@ addAllToReducedEschelonForm operators form =
         (flip addToReducedEschelonForm)
         form
         operators
+{-# INLINE addAllToReducedEschelonForm #-}
 -- }}}
 
 addToReducedEschelonFormWithSuccessTag :: Operator → ReducedEschelonForm → (ReducedEschelonForm, Bool) -- {{{
@@ -118,6 +120,7 @@ mapPseudoGenerator :: (Operator → Operator) → PseudoGenerator → PseudoGene
 mapPseudoGenerator f (PGX op) = PGX (f op)
 mapPseudoGenerator f (PGZ op) = PGZ (f op)
 mapPseudoGenerator f (PGXZ opx opz) = PGXZ (f opx) (f opz)
+{-# INLINE mapPseudoGenerator #-}
 -- }}}
 
 makeSingletonPseudoGeneratorFromColumn :: Int → Operator → PseudoGenerator -- {{{
@@ -127,12 +130,14 @@ makeSingletonPseudoGeneratorFromColumn column op =
         Y → PGX op
         Z → PGZ op
         _ → error $ "tried to make a pseudo-generator using trivial column " ++ show column ++ " of operator " ++ show op
+{-# INLINE makeSingletonPseudoGeneratorFromColumn #-}
 -- }}}
 
 numberOfOperatorsInPseudoGenerator :: PseudoGenerator → Int -- {{{
 numberOfOperatorsInPseudoGenerator (PGX _) = 1
 numberOfOperatorsInPseudoGenerator (PGZ _) = 1
 numberOfOperatorsInPseudoGenerator (PGXZ _ _) = 2
+{-# INLINE numberOfOperatorsInPseudoGenerator #-}
 -- }}}
 
 numberOfOperatorsInReducedEschelonForm :: ReducedEschelonForm → Int -- {{{
@@ -152,6 +157,7 @@ operatorsInPseudoGenerator :: PseudoGenerator → [Operator] -- {{{
 operatorsInPseudoGenerator (PGX op) = [op]
 operatorsInPseudoGenerator (PGZ op) = [op]
 operatorsInPseudoGenerator (PGXZ opx opz) = [opx,opz]
+{-# INLINE operatorsInPseudoGenerator #-}
 -- }}}
 
 operatorsInReducedEschelonForm :: ReducedEschelonForm → [Operator] -- {{{
@@ -161,23 +167,28 @@ operatorsInReducedEschelonForm =
     IntMap.elems
     .
     unwrapReducedEschelonForm
+{-# INLINE operatorsInReducedEschelonForm #-}
 -- }}}
 
 orthogonalizeWithPseudoGenerators :: [(Int,PseudoGenerator)] → Operator → Operator -- {{{
 orthogonalizeWithPseudoGenerators _ op@(Operator 0 0) = op
-orthogonalizeWithPseudoGenerators [] op = op
-orthogonalizeWithPseudoGenerators ((column,pseudo_generator):rest) op =
-    orthogonalizeWithPseudoGenerators rest (orthogonalizeWithPseudoGeneratorAt column pseudo_generator op)
+orthogonalizeWithPseudoGenerators pseudogenerators op = go pseudogenerators op
+  where
+    go [] op = op
+    go ((column,pseudo_generator):rest) op = go rest (orthogonalizeWithPseudoGeneratorAt column pseudo_generator op) 
+{-# INLINE orthogonalizeWithPseudoGenerators #-}
 -- }}}
 
 orthogonalizeWithPseudoGeneratorAt :: Int → PseudoGenerator → Operator → Operator -- {{{
 orthogonalizeWithPseudoGeneratorAt column (PGX op) = multiplyByIfHasXBitAt column op
 orthogonalizeWithPseudoGeneratorAt column (PGZ op) = multiplyByIfHasZBitAt column op
 orthogonalizeWithPseudoGeneratorAt column (PGXZ ox oz) = multiplyByIfHasXZBitAt column ox oz
+{-# INLINE orthogonalizeWithPseudoGeneratorAt #-}
 -- }}}
 
 orthogonalizeWithReducedEschelonForm :: ReducedEschelonForm → Operator → Operator -- {{{
 orthogonalizeWithReducedEschelonForm = orthogonalizeWithPseudoGenerators . IntMap.toList . unwrapReducedEschelonForm
+{-# INLINE orthogonalizeWithReducedEschelonForm #-}
 -- }}}
 
 -- }}} Functions
