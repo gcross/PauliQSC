@@ -164,7 +164,7 @@ validateCode number_of_physical_qubits code@SubsystemCode{..} = do -- {{{
     forM_ subsystemCodeStabilizers $ \stabilizer → do
         forM_ subsystemCodeStabilizers $ \other_stabilizer → do
             assertCommute
-                "stabilizers"
+                "stabilizers commute"
                 stabilizer
                 other_stabilizer
         forM_ all_qubit_operators $ \(qubit_type,_,opname,op) →
