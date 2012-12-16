@@ -336,7 +336,7 @@ pauliToChar Z = 'Z'
 pauliToChar Y = 'Y'
 -- }}}
 
-isIdentity :: Num α ⇒ Operator α → Bool -- {{{
+isIdentity :: (Eq α, Num α) ⇒ Operator α → Bool -- {{{
 isIdentity (Operator 0 0) = True
 isIdentity _ = False
 {-# SPECIALIZE INLINE isIdentity :: Operator8 → Bool #-}
@@ -347,7 +347,7 @@ isIdentity _ = False
 {-# INLINE isIdentity #-}
 -- }}}
 
-isNotIdentity :: Num α ⇒ Operator α → Bool -- {{{
+isNotIdentity :: (Eq α, Num α) ⇒ Operator α → Bool -- {{{
 isNotIdentity = not . isIdentity
 {-# SPECIALIZE INLINE isNotIdentity :: Operator8 → Bool #-}
 {-# SPECIALIZE INLINE isNotIdentity :: Operator16 → Bool #-}
