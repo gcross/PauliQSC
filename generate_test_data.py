@@ -11,6 +11,6 @@ from random import choice
 for i in xrange(number_of_operators):
     operator = ''.join(choice(paulis) for _ in xrange(number_of_bits))
     first_character = ',' if i != 0 else '['
-    print "{}{}read \"{}\" :: Operator Word{}".format(indentation,first_character,operator,number_of_bits)
+    print "{}{}read \"{}\"".format(indentation,first_character,operator)
 
 print indentation + ']'

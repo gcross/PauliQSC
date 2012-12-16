@@ -5,7 +5,7 @@
 
 -- }}} Language extensions
 
-module Data.Quantum.Operator.SubsystemCode where
+module Data.Quantum.Small.Operator.SubsystemCode where
 
 -- Imports {{{
 
@@ -17,21 +17,21 @@ import Data.List (foldl')
 import Data.Monoid (mempty)
 import Data.Word
 
-import Data.Quantum.Operator
-import Data.Quantum.Operator.Qubit
-import Data.Quantum.Operator.ReducedEschelonForm
+import Data.Quantum.Small.Operator
+import Data.Quantum.Small.Operator.Qubit
+import Data.Quantum.Small.Operator.ReducedEschelonForm
 
 -- }}} Imports
 
 -- Types {{{
 
-data SubsystemCode α = SubsystemCode
-    {   subsystemCodeMeasurements :: ReducedEschelonForm α
-    ,   subsystemCodeStabilizers :: [Operator α]
+data SubsystemCode = SubsystemCode
+    {   subsystemCodeMeasurements :: ReducedEschelonForm
+    ,   subsystemCodeStabilizers :: [Operator]
     ,   subsystemCodeStabilizersCount :: !Int
-    ,   subsystemCodeGaugeQubits :: [Qubit α]
+    ,   subsystemCodeGaugeQubits :: [Qubit]
     ,   subsystemCodeGaugeQubitsCount :: !Int
-    ,   subsystemCodeLogicalQubits :: [Qubit α]
+    ,   subsystemCodeLogicalQubits :: [Qubit]
     ,   subsystemCodeLogicalQubitsCount :: !Int
     } deriving (Eq,Ord,Show)
 
@@ -39,33 +39,23 @@ data SubsystemCode α = SubsystemCode
 
 -- Instances {{{
 
-instance NFData (SubsystemCode α) where
+instance NFData (SubsystemCode) where
     rnf (SubsystemCode a b c d e f g) = a `seq` b `seq` c `seq` d `seq` e `seq` f `seq` g `seq` ()
 
 -- }}}
 
 -- Functions {{{
 
-addAllToSubsystemCode :: Bits α ⇒ [Operator α] → SubsystemCode α → SubsystemCode α -- {{{
+addAllToSubsystemCode :: [Operator] → SubsystemCode → SubsystemCode -- {{{
 addAllToSubsystemCode [] = id
 addAllToSubsystemCode (operator:rest) = addAllToSubsystemCode rest . addToSubsystemCode operator
-{-# SPECIALIZE addAllToSubsystemCode :: [Operator Word8] → SubsystemCode Word8 → SubsystemCode Word8 #-}
-{-# SPECIALIZE addAllToSubsystemCode :: [Operator Word16] → SubsystemCode Word16 → SubsystemCode Word16 #-}
-{-# SPECIALIZE addAllToSubsystemCode :: [Operator Word32] → SubsystemCode Word32 → SubsystemCode Word32 #-}
-{-# SPECIALIZE addAllToSubsystemCode :: [Operator Word64] → SubsystemCode Word64 → SubsystemCode Word64 #-}
-{-# SPECIALIZE addAllToSubsystemCode :: [Operator Integer] → SubsystemCode Integer → SubsystemCode Integer #-}
 -- }}}
 
-addToSubsystemCode :: Bits α ⇒ Operator α → SubsystemCode α → SubsystemCode α -- {{{
+addToSubsystemCode :: Operator → SubsystemCode → SubsystemCode -- {{{
 addToSubsystemCode op code = fst (addToSubsystemCodeWithSuccessTag op code)
-{-# SPECIALIZE addToSubsystemCode :: Operator Word8 → SubsystemCode Word8 → SubsystemCode Word8 #-}
-{-# SPECIALIZE addToSubsystemCode :: Operator Word16 → SubsystemCode Word16 → SubsystemCode Word16 #-}
-{-# SPECIALIZE addToSubsystemCode :: Operator Word32 → SubsystemCode Word32 → SubsystemCode Word32 #-}
-{-# SPECIALIZE addToSubsystemCode :: Operator Word64 → SubsystemCode Word64 → SubsystemCode Word64 #-}
-{-# SPECIALIZE addToSubsystemCode :: Operator Integer → SubsystemCode Integer → SubsystemCode Integer #-}
 -- }}}
 
-addToSubsystemCodeWithSuccessTag :: Bits α ⇒ Operator α → SubsystemCode α → (SubsystemCode α,Bool) -- {{{
+addToSubsystemCodeWithSuccessTag :: Operator → SubsystemCode → (SubsystemCode,Bool) -- {{{
 addToSubsystemCodeWithSuccessTag op old_code@SubsystemCode{..} =
   case addToReducedEschelonFormWithSuccessTag op subsystemCodeMeasurements of
       (_,False) → (old_code,False)
@@ -135,23 +125,13 @@ addToSubsystemCodeWithSuccessTag op old_code@SubsystemCode{..} =
                                 (_,False) → new_logical_qubits ++ map (multiplyQubitByIfAntiCommuteWith z op_commuting_with_gauge_qubits) rest
                 $
                 subsystemCodeLogicalQubits
-{-# SPECIALIZE addToSubsystemCodeWithSuccessTag :: Operator Word8 → SubsystemCode Word8 → (SubsystemCode Word8, Bool) #-}
-{-# SPECIALIZE addToSubsystemCodeWithSuccessTag :: Operator Word16 → SubsystemCode Word16 → (SubsystemCode Word16, Bool) #-}
-{-# SPECIALIZE addToSubsystemCodeWithSuccessTag :: Operator Word32 → SubsystemCode Word32 → (SubsystemCode Word32, Bool) #-}
-{-# SPECIALIZE addToSubsystemCodeWithSuccessTag :: Operator Word64 → SubsystemCode Word64 → (SubsystemCode Word64, Bool) #-}
-{-# SPECIALIZE addToSubsystemCodeWithSuccessTag :: Operator Integer → SubsystemCode Integer → (SubsystemCode Integer, Bool) #-}
 -- }}}
 
-constructSubsystemCodeFromMeasurements :: Bits α ⇒ Int → [Operator α] → SubsystemCode α -- {{{
+constructSubsystemCodeFromMeasurements :: Int → [Operator] → SubsystemCode -- {{{
 constructSubsystemCodeFromMeasurements number_of_physical_qubits operators = addAllToSubsystemCode operators (initialSubsystemCode number_of_physical_qubits)
-{-# SPECIALIZE constructSubsystemCodeFromMeasurements :: Int → [Operator Word8] → SubsystemCode Word8 #-}
-{-# SPECIALIZE constructSubsystemCodeFromMeasurements :: Int → [Operator Word16] → SubsystemCode Word16 #-}
-{-# SPECIALIZE constructSubsystemCodeFromMeasurements :: Int → [Operator Word32] → SubsystemCode Word32 #-}
-{-# SPECIALIZE constructSubsystemCodeFromMeasurements :: Int → [Operator Word64] → SubsystemCode Word64 #-}
-{-# SPECIALIZE constructSubsystemCodeFromMeasurements :: Int → [Operator Integer] → SubsystemCode Integer #-}
 -- }}}
 
-initialSubsystemCode :: Bits α ⇒ Int → SubsystemCode α -- {{{
+initialSubsystemCode :: Int → SubsystemCode -- {{{
 initialSubsystemCode number_of_physical_qubits = SubsystemCode{..}
   where
     subsystemCodeMeasurements = mempty
@@ -160,19 +140,14 @@ initialSubsystemCode number_of_physical_qubits = SubsystemCode{..}
     subsystemCodeGaugeQubits = []
     subsystemCodeGaugeQubitsCount = 0
     subsystemCodeLogicalQubits = [Qubit (Operator (bit i) 0) (Operator 0 (bit i)) | i ← [0..number_of_physical_qubits-1]]
-    subsystemCodeLogicalQubitsCount = number_of_physical_qubits 
-{-# SPECIALIZE initialSubsystemCode :: Int → SubsystemCode Word8 #-}
-{-# SPECIALIZE initialSubsystemCode :: Int → SubsystemCode Word16 #-}
-{-# SPECIALIZE initialSubsystemCode :: Int → SubsystemCode Word32 #-}
-{-# SPECIALIZE initialSubsystemCode :: Int → SubsystemCode Word64 #-}
-{-# SPECIALIZE initialSubsystemCode :: Int → SubsystemCode Integer #-}
+    subsystemCodeLogicalQubitsCount = number_of_physical_qubits
 -- }}}
 
-numberOfMeasurementOperatorsInCode :: SubsystemCode α → Int -- {{{
+numberOfMeasurementOperatorsInCode :: SubsystemCode → Int -- {{{
 numberOfMeasurementOperatorsInCode SubsystemCode{..} = subsystemCodeStabilizersCount + 2*subsystemCodeGaugeQubitsCount
 -- }}}
 
-numberOfPhysicalQubitsInCode :: SubsystemCode α → Int -- {{{
+numberOfPhysicalQubitsInCode :: SubsystemCode → Int -- {{{
 numberOfPhysicalQubitsInCode SubsystemCode{..} = subsystemCodeStabilizersCount + subsystemCodeGaugeQubitsCount + subsystemCodeLogicalQubitsCount
 -- }}}
 

@@ -36,20 +36,20 @@ import Test.QuickCheck
 
 import Debug.Trace
 
-import Data.Quantum.Operator
-import Data.Quantum.Operator.Qubit
-import Data.Quantum.Operator.ReducedEschelonForm
-import Data.Quantum.Operator.SubsystemCode
+import Data.Quantum.Small.Operator
+import Data.Quantum.Small.Operator.Qubit
+import Data.Quantum.Small.Operator.ReducedEschelonForm
+import Data.Quantum.Small.Operator.SubsystemCode
 
 -- }}} Imports
 
 -- Types {{{
 
-data NonTrivialOperatorAndSize α = NonTrivialOperatorAndSize (Operator α) Int deriving (Eq)
+data NonTrivialOperatorAndSize = NonTrivialOperatorAndSize Operator Int deriving (Eq)
 
-data OperatorAndSize α = OperatorAndSize (Operator α) Int deriving (Eq,Show)
+data OperatorAndSize = OperatorAndSize Operator Int deriving (Eq,Show)
 
-data OperatorAndSizeAndIndex α = OperatorAndSizeAndIndex (Operator α) Int Int deriving (Eq,Show)
+data OperatorAndSizeAndIndex = OperatorAndSizeAndIndex Operator Int Int deriving (Eq,Show)
 
 -- }}} Types
 
@@ -59,29 +59,29 @@ data OperatorAndSizeAndIndex α = OperatorAndSizeAndIndex (Operator α) Int Int 
 
 instance Arbitrary Pauli where arbitrary = elements [I,X,Y,Z]
 
-instance Bits α ⇒ Arbitrary (NonTrivialOperatorAndSize α) where -- {{{
+instance Arbitrary NonTrivialOperatorAndSize where -- {{{
     arbitrary = do
-        n ← choose (1,bitSize (undefined :: α))
+        n ← choose (1,bitSize (undefined :: Word))
         o ← generateNonTrivialOperatorOfSize n
         return $ NonTrivialOperatorAndSize o n
 -- }}}
 
-instance Bits α ⇒ Arbitrary (Operator α) where -- {{{
+instance Arbitrary Operator where -- {{{
     arbitrary =
         fmap fromPauliList
-             (resize (bitSize (undefined :: α)) (listOf arbitrary))
+             (resize (bitSize (undefined :: Word)) (listOf arbitrary))
 -- }}}
 
-instance Bits α ⇒ Arbitrary (OperatorAndSize α) where -- {{{
+instance Arbitrary OperatorAndSize where -- {{{
     arbitrary = do
-        n ← choose (0,bitSize (undefined :: α))
+        n ← choose (0,bitSize (undefined :: Word))
         o ← generateOperatorOfSize n
         return $ OperatorAndSize o n
 -- }}}
 
-instance Bits α ⇒ Arbitrary (OperatorAndSizeAndIndex α) where -- {{{
+instance Arbitrary OperatorAndSizeAndIndex where -- {{{
     arbitrary = do
-        n ← choose (1,bitSize (undefined :: α))
+        n ← choose (1,bitSize (undefined :: Word))
         i ← choose (0,n-1)
         o ← generateOperatorOfSize n
         return $ OperatorAndSizeAndIndex o n i
@@ -89,21 +89,21 @@ instance Bits α ⇒ Arbitrary (OperatorAndSizeAndIndex α) where -- {{{
 
 -- }}} Arbitrary
 
-instance Show (Operator α) ⇒ Show (NonTrivialOperatorAndSize α) where
+instance Show Operator ⇒ Show NonTrivialOperatorAndSize where
     show (NonTrivialOperatorAndSize op size) = printf ("[size = %i, operator = '%s']") size (show op)
 
 -- }}} Instances
 
 -- Functions {{{
 
-assertAntiCommute :: Bits α ⇒ String → Operator α → Operator α → Assertion -- {{{
+assertAntiCommute :: String → Operator → Operator → Assertion -- {{{
 assertAntiCommute message a b =
     assertBool
         (message ++ " {" ++ show a ++ "," ++ show b ++ "}")
         (antiCommute a b)
 -- }}}
 
-assertCommute :: Bits α ⇒ String → Operator α → Operator α → Assertion -- {{{
+assertCommute :: String → Operator → Operator → Assertion -- {{{
 assertCommute message a b =
     assertBool
         (message ++ " [" ++ show a ++ "," ++ show b ++ "]")
@@ -120,7 +120,7 @@ assertNotEqual preface expected actual =
              "expected to *not* get: " ++ show expected ++ "\n"
 -- }}}
 
-generateNonTrivialOperatorOfSize :: Bits α ⇒ Int → Gen (Operator α) -- {{{
+generateNonTrivialOperatorOfSize :: Int → Gen (Operator) -- {{{
 generateNonTrivialOperatorOfSize 0 = error "it is impossible to generate a non-trivial operator of size zero"
 generateNonTrivialOperatorOfSize n =
     let upper_bound = bit n - 1
@@ -133,7 +133,7 @@ generateNonTrivialOperatorOfSize n =
     in fmap (uncurry Operator) go
 -- }}}
 
-generateOperatorOfSize :: Bits α ⇒ Int → Gen (Operator α) -- {{{
+generateOperatorOfSize :: Int → Gen (Operator) -- {{{
 generateOperatorOfSize n =
     let upper_bound = bit n - 1
     in liftM2 Operator
@@ -242,7 +242,7 @@ main = defaultMain
     -- Tests {{{
     [testGroup "Data.Quantum.Operator" -- {{{
         [testGroup "Functions" $ -- {{{
-            [testProperty "agreeAt" $ \(o1 :: Operator Word8) (o2 :: Operator Word8) → do -- {{{
+            [testProperty "agreeAt" $ \o1 o2 → do -- {{{
                 i ← choose (0,7)
                 return $ agreeAt i o1 o2 == (getPauliAt i o1 == getPauliAt i o2)
              -- }}}
@@ -252,7 +252,7 @@ main = defaultMain
                 components2 :: [Pauli] ← vector n
                 i ← choose (0,n-1)
                 return $
-                    antiCommuteAt i (fromPauliList components1 :: Operator Word8) (fromPauliList components2)
+                    antiCommuteAt i (fromPauliList components1) (fromPauliList components2)
                  == antiCommute (components1 !! i) (components2 !! i)
              -- }}}
             ,testProperty "commuteAt" $ do -- {{{
@@ -261,19 +261,19 @@ main = defaultMain
                 components2 :: [Pauli] ← vector n
                 i ← choose (0,n-1)
                 return $
-                    commuteAt i (fromPauliList components1 :: Operator Word8) (fromPauliList components2)
+                    commuteAt i (fromPauliList components1) (fromPauliList components2)
                  == commute (components1 !! i) (components2 !! i)
              -- }}}
-            ,testProperty "countBits" $ \(x :: Word8) → countBits x == length [() | i ← [0..7], testBit x i]
+            ,testProperty "countBits" $ \x → countBits x == length [() | i ← [0..bitSize (undefined :: Word)-1], testBit x i]
             ,testGroup "fromPauliList" -- {{{
-                [testCase "identity" $ forM_ [0..8] $ \n → Operator 0 (0 :: Word8) @=? fromPauliList (replicate n I)
-                ,testCase "IXYZ" $ Operator 6 (12 :: Word8) @=? fromPauliList [I,X,Y,Z]
-                ,testProperty ". toPauliList = identity function" $ \(OperatorAndSize (op :: Operator Word16) n) → -- {{{
+                [testCase "identity" $ forM_ [0..8] $ \n → Operator 0 0 @=? fromPauliList (replicate n I)
+                ,testCase "IXYZ" $ Operator 6 12 @=? fromPauliList [I,X,Y,Z]
+                ,testProperty ". toPauliList = identity function" $ \(OperatorAndSize op n) → -- {{{
                     liftA2 (==) id (fromPauliList . toPauliList n) op
                  -- }}}
                 ]
              -- }}}
-            ,testProperty "getPauliAt" $ \(OperatorAndSizeAndIndex (o :: Operator Word16) n i) → -- {{{
+            ,testProperty "getPauliAt" $ \(OperatorAndSizeAndIndex o n i) → -- {{{
                 getPauliAt i o == (toPauliList n o) !! i
              -- }}}
             ,testCase "has(X/Z)Bit" $ -- {{{
@@ -283,14 +283,14 @@ main = defaultMain
              -- }}}
             ,testGroup "maybeFirstNonTrivialColumnOf" -- {{{
                 [testCase "identity" $ -- {{{
-                    forM_ [0..8] $ \(n :: Int) →
+                    forM_ [0..8] $ \n →
                         assertBool ("column " ++ show n) $
-                            isNothing (maybeFirstNonTrivialColumnOf . (fromPauliList :: [Pauli] → Operator Word8) $ replicate n I)
+                            isNothing (maybeFirstNonTrivialColumnOf . fromPauliList $ replicate n I)
                  -- }}}
                 ,testProperty "non-identity" $ do -- {{{
                     n ← choose(1,8)
                     first_non_trivial_column ← choose (0,n-1)
-                    operator :: Operator Word8 ←
+                    operator ←
                         fmap (fromPauliList . concat) . sequence $
                             [return (replicate first_non_trivial_column I)
                             ,fmap (:[]) (elements [X,Y,Z])
@@ -300,33 +300,33 @@ main = defaultMain
                  -- }}}
                 ]
              -- }}}
-            ,testProperty "multiplyByIf" $ \(b :: Bool, x :: Operator Word8, y :: Operator Word8) → -- {{{
+            ,testProperty "multiplyByIf" $ \b x y → -- {{{
                 multiplyByIf b x y == if b then (x `mappend` y) else y
              -- }}}
             ,testProperty "multiplyByIfAntiCommuteAt" $ do -- {{{
                 n ← choose (1,8)
                 components1 :: [Pauli] ← vector n
-                let operator1 :: Operator Word8 = fromPauliList components1
+                let operator1 = fromPauliList components1
                 components2 :: [Pauli] ← vector n
-                let operator2 :: Operator Word8 = fromPauliList components2
+                let operator2 = fromPauliList components2
                 i ← choose (0,n-1)
                 return $
                     multiplyByIfAntiCommuteAt i operator1 operator2
                  == if antiCommuteAt i operator1 operator2 then (operator1 `mappend` operator2) else operator2
              -- }}}
-            ,testProperty "nonTrivialAt" $ \(OperatorAndSizeAndIndex (o :: Operator Word16) n i) → -- {{{
+            ,testProperty "nonTrivialAt" $ \(OperatorAndSizeAndIndex o n i) → -- {{{
                 nonTrivialAt i o == (toPauliList n o !! i /= I)
              -- }}}
-            ,testProperty "setPauliAt" $ \(OperatorAndSizeAndIndex (o :: Operator Word16) _ i) (p :: Pauli) → -- {{{
+            ,testProperty "setPauliAt" $ \(OperatorAndSizeAndIndex o _ i) p → -- {{{
                     (getPauliAt i . setPauliAt i p) o == p
              -- }}}
             ,testGroup "toPauliList" -- {{{
-                [testCase "identity" $ forM_ [0..8] $ \n → toPauliList n (Operator 0 (0 :: Word8)) @?= replicate n I
-                ,testCase "IXYZ" $ toPauliList 4 (Operator 6 (12 :: Word8)) @?= [I,X,Y,Z]
+                [testCase "identity" $ forM_ [0..8] $ \n → toPauliList n (Operator 0 0) @?= replicate n I
+                ,testCase "IXYZ" $ toPauliList 4 (Operator 6 12) @?= [I,X,Y,Z]
                 ,testProperty ". fromPauliList = identity function" $ do -- {{{
                     n ← choose(0,8)
                     components :: [Pauli] ← vector n
-                    return $ liftA2 (==) id (toPauliList n . (fromPauliList :: [Pauli] → Operator Word8)) components
+                    return $ liftA2 (==) id (toPauliList n . fromPauliList) components
                  -- }}}
                 ]
              -- }}}
@@ -335,13 +335,13 @@ main = defaultMain
         ,testGroup "Instances" -- {{{
             [testGroup "Commutable" -- {{{
                 [testGroup "Operator" -- {{{
-                    [testProperty "correct property" $ \(x :: Operator Word8, y :: Operator Word8) → commute x y /= antiCommute x y
+                    [testProperty "correct property" $ \(x :: Operator, y :: Operator) → commute x y /= antiCommute x y
                     ,testProperty "correct result" $ do -- {{{
                         n ← choose(0,8)
                         components1 :: [Pauli] ← vector n
                         components2 :: [Pauli] ← vector n
                         return $
-                            commute (fromPauliList components1 :: Operator Word8) (fromPauliList components2)
+                            commute (fromPauliList components1) (fromPauliList components2)
                             ==
                             (length (filter id (zipWith antiCommute components1 components2)) `mod` 2 == 0)
                      -- }}}
@@ -384,7 +384,7 @@ main = defaultMain
                     return $
                         (fromPauliList components1 `mappend` fromPauliList components2)
                         ==
-                        (fromPauliList (zipWith mappend components1 components2) :: Operator Word8)
+                        fromPauliList (zipWith mappend components1 components2)
                  -- }}}
                 ,testCase "Pauli" $ do -- {{{
                     assertEqual "I*I=I" I (I `mappend` I)
@@ -410,58 +410,54 @@ main = defaultMain
                 ]
              -- }}}
             ,testGroup "Read" -- {{{
-                [testProperty "Operator" $ \(op :: Operator Word8) → (read . show) op == op
+                [testProperty "Operator" $ \(op :: Operator) → (read . show) op == op
                 ]
              -- }}}
             ]
          -- }}}
         ]
-     -- }}} Data.Quantum.Operator
+     -- }}}
     ,testGroup "Data.Quantum.Operator.ReducedEschelonForm" -- {{{
-        [testProperty "add one operator to an empty form" $ -- {{{
-            \(op :: Operator Word8) →
-                if op == mempty
-                then
-                    let (ReducedEschelonForm new_form,success) = addToReducedEschelonFormWithSuccessTag op mempty
-                    in not success
-                    && IntMap.null new_form
-                    && Nothing == maybeFirstNonTrivialColumnOf op 
-                else
-                    let (ReducedEschelonForm new_form,success) = addToReducedEschelonFormWithSuccessTag op mempty
-                    in success
-                    && IntMap.size new_form == 1
-                    && Just (head (IntMap.keys new_form)) == maybeFirstNonTrivialColumnOf op 
+        [testProperty "add one operator to an empty form" $ \op → -- {{{
+            if op == mempty
+            then
+                let (ReducedEschelonForm new_form,success) = addToReducedEschelonFormWithSuccessTag op mempty
+                in not success
+                && IntMap.null new_form
+                && Nothing == maybeFirstNonTrivialColumnOf op 
+            else
+                let (ReducedEschelonForm new_form,success) = addToReducedEschelonFormWithSuccessTag op mempty
+                in success
+                && IntMap.size new_form == 1
+                && Just (head (IntMap.keys new_form)) == maybeFirstNonTrivialColumnOf op 
          -- }}}
-        ,testProperty "add two operators with non-trivial first bit to an empty form" $ -- {{{
-            \(o1_ :: Operator Word8) (o2_ :: Operator Word8) → do
-                p1 ← elements [X,Y,Z]
-                p2 ← elements (delete p1 [X,Y,Z])
-                let o1 = setPauliAt 0 p1 o1_
-                    o2 = setPauliAt 0 p2 o2_
-                    (form1,success1) = addToReducedEschelonFormWithSuccessTag o1_ mempty
-                    (form2,success2) = addToReducedEschelonFormWithSuccessTag o2_ form1
-                return . const True . unsafePerformIO $ do
-                    assertBool "first addition was successful" success1
-                    assertEqual "size of form after first addition is correct" 1 (IntMap.size (unwrapReducedEschelonForm form1))
-                    assertBool "second addition was succesful" success1
-                    assertEqual "size of form after second addition is correct" 1 (IntMap.size (unwrapReducedEschelonForm form2))
-                    let pseudo_generator = (head . IntMap.elems . unwrapReducedEschelonForm $ form2)
-                    case pseudo_generator of
-                        PGXZ (Operator xx xz) (Operator zx zz) → do
-                            assertBool "pseudo-generator x op have a 1 bit at column 0 of its x component" (testBit xx 0)
-                            assertBool "pseudo-generator x op have a 0 bit at column 0 of its z component" (testBit xz 0)
-                            assertBool "pseudo-generator z op have a 0 bit at column 0 of its z component" (testBit zx 0)
-                            assertBool "pseudo-generator z op have a 1 bit at column 0 of its x component" (testBit zz 0)
-                        _ → assertFailure $ "pseudo-generator has incorrect form: " ++ show pseudo_generator
+        ,testProperty "add two operators with non-trivial first bit to an empty form" $ \o1_ o2_ → do -- {{{
+            p1 ← elements [X,Y,Z]
+            p2 ← elements (delete p1 [X,Y,Z])
+            let o1 = setPauliAt 0 p1 o1_
+                o2 = setPauliAt 0 p2 o2_
+                (form1,success1) = addToReducedEschelonFormWithSuccessTag o1_ mempty
+                (form2,success2) = addToReducedEschelonFormWithSuccessTag o2_ form1
+            return . const True . unsafePerformIO $ do
+                assertBool "first addition was successful" success1
+                assertEqual "size of form after first addition is correct" 1 (IntMap.size (unwrapReducedEschelonForm form1))
+                assertBool "second addition was succesful" success1
+                assertEqual "size of form after second addition is correct" 1 (IntMap.size (unwrapReducedEschelonForm form2))
+                let pseudo_generator = (head . IntMap.elems . unwrapReducedEschelonForm $ form2)
+                case pseudo_generator of
+                    PGXZ (Operator xx xz) (Operator zx zz) → do
+                        assertBool "pseudo-generator x op have a 1 bit at column 0 of its x component" (testBit xx 0)
+                        assertBool "pseudo-generator x op have a 0 bit at column 0 of its z component" (testBit xz 0)
+                        assertBool "pseudo-generator z op have a 0 bit at column 0 of its z component" (testBit zx 0)
+                        assertBool "pseudo-generator z op have a 1 bit at column 0 of its x component" (testBit zz 0)
+                    _ → assertFailure $ "pseudo-generator has incorrect form: " ++ show pseudo_generator
          -- }}}
-        ,testProperty "add the same operator twice" $ -- {{{
-            \(o :: Operator Word8) → o /= mempty ==>
-                let form1 = addToReducedEschelonForm o mempty
-                    (form2,successful) = addToReducedEschelonFormWithSuccessTag o form1
-                in form1 == form2 && not successful
+        ,testProperty "add the same operator twice" $ \o → o /= mempty ==> -- {{{
+            let form1 = addToReducedEschelonForm o mempty
+                (form2,successful) = addToReducedEschelonFormWithSuccessTag o form1
+            in form1 == form2 && not successful
          -- }}}
-        ,testProperty "every pseudo-generator is independent of all others in its assigned column" $ -- {{{
-         \(operators :: [Operator Word8]) →
+        ,testProperty "every pseudo-generator is independent of all others in its assigned column" $ \operators → -- {{{
             let ReducedEschelonForm form = addAllToReducedEschelonForm operators mempty
             in unsafePerformIO . (>> return True) $
                 forM_ (IntMap.assocs form) $ \(i,pg1) →
@@ -472,8 +468,7 @@ main = defaultMain
                                     ("is the pseudo-generator at column " ++ show i ++ " independent from the pseudo-generator at column " ++ show j ++ "? (" ++ show op1 ++ " * " ++ show op2 ++ ")")
                                     (nonTrivialAt i (op1 `mappend` op2))
          -- }}}
-        ,testProperty "every pseudo-generator has the correct paulis in the assigned column" $ -- {{{
-          \(operators :: [Operator Word8]) →
+        ,testProperty "every pseudo-generator has the correct paulis in the assigned column" $ \operators → -- {{{
             let ReducedEschelonForm form = addAllToReducedEschelonForm operators mempty
             in unsafePerformIO . (>> return True) $ do
                 forM_ (IntMap.assocs form) $ \(column,pseudo_generator) → do
@@ -496,8 +491,7 @@ main = defaultMain
                                 Z
                                 (getPauliAt column opz)
          -- }}}
-        ,testProperty "adding a previously seen operator always fails" $ -- {{{
-          \(operators_ :: [Operator Word8]) (operator :: Operator Word8) → do
+        ,testProperty "adding a previously seen operator always fails" $ \operators_ operator → do -- {{{
             pos ← choose (0,length operators_)
             let (l,r) = splitAt pos operators_
                 operators = l ++ [operator] ++ r
@@ -510,7 +504,7 @@ main = defaultMain
          -- }}}
         ,testProperty "the pseudo-generators generate the same set as the original operators" $ do -- {{{
             n ← choose (0,8)
-            operators :: [Operator Word8] ← vectorOf n arbitrary
+            operators ← vectorOf n arbitrary
             let form = addAllToReducedEschelonForm operators mempty
             return . unsafePerformIO . (>> return True) $
                 (on
@@ -521,8 +515,8 @@ main = defaultMain
                     (operatorsInReducedEschelonForm form)
          -- }}}
         ,testProperty "the mappend function results in a form that generates the same set of operators" $ do -- {{{
-            form1 ← fmap (flip addAllToReducedEschelonForm mempty) (choose (0,4) >>= flip vectorOf (arbitrary :: Gen (Operator Word8)))
-            form2 ← fmap (flip addAllToReducedEschelonForm mempty) (choose (0,4) >>= flip vectorOf (arbitrary :: Gen (Operator Word8)))
+            form1 ← fmap (flip addAllToReducedEschelonForm mempty) (choose (0,4) >>= flip vectorOf arbitrary)
+            form2 ← fmap (flip addAllToReducedEschelonForm mempty) (choose (0,4) >>= flip vectorOf arbitrary)
             return . unsafePerformIO . (>> return True) $
                 (on
                     (assertEqual "Does the reduced eschelon form generate the same set as the original?")
@@ -532,14 +526,14 @@ main = defaultMain
                     (operatorsInReducedEschelonForm (form1 `mappend` form2))
          -- }}}
         ]
-     -- }}} Data.Quantum.Operator.ReducedEschelonForm
+     -- }}}
     ,testGroup "Data.Quantum.Operator.SubsystemCode" -- {{{
         [testProperty "initialSubsystemCode" $ do -- {{{
             number_of_physical_qubits ← choose (1,16)
-            let code = initialSubsystemCode number_of_physical_qubits :: SubsystemCode Word16
+            let code = initialSubsystemCode number_of_physical_qubits
             return . unsafePerformIO . (True <$) $ validateCode number_of_physical_qubits code
          -- }}}
-        ,testProperty "adding one operator" $ \(NonTrivialOperatorAndSize op number_of_physical_qubits :: NonTrivialOperatorAndSize Word16) → -- {{{
+        ,testProperty "adding one operator" $ \(NonTrivialOperatorAndSize op number_of_physical_qubits) → -- {{{
             unsafePerformIO . (True <$) $ do
                 let (code@SubsystemCode{..},success) = addToSubsystemCodeWithSuccessTag op (initialSubsystemCode number_of_physical_qubits)
                 assertBool "success of adding operator to the code" success
@@ -550,7 +544,7 @@ main = defaultMain
          -- }}}
         ,testProperty "adding two anti-commuting operators" $ do -- {{{
             number_of_physical_qubits ← choose (1,16)
-            op1 :: Operator Word16 ← generateNonTrivialOperatorOfSize number_of_physical_qubits
+            op1 ← generateNonTrivialOperatorOfSize number_of_physical_qubits
             let go = do
                     op2 ← generateNonTrivialOperatorOfSize number_of_physical_qubits
                     if antiCommute op1 op2
@@ -574,7 +568,7 @@ main = defaultMain
          -- }}}
         ,testProperty "adding two commuting operators" $ do -- {{{
             number_of_physical_qubits ← choose (2,16)
-            op1 :: Operator Word16 ← generateNonTrivialOperatorOfSize number_of_physical_qubits
+            op1 ← generateNonTrivialOperatorOfSize number_of_physical_qubits
             let go = do
                     op2 ← generateNonTrivialOperatorOfSize number_of_physical_qubits
                     if commute op1 op2 && op1 /= op2
@@ -596,28 +590,20 @@ main = defaultMain
                 assertEqual "number of gauge qubits" 0 subsystemCodeGaugeQubitsCount
                 assertEqual "number of logical qubits" (number_of_physical_qubits-2) subsystemCodeLogicalQubitsCount
          -- }}}
-        ,testGroup "construction from random sets of operators preserves code validity" $
-            let test :: Bits α ⇒ α → [Operator α] → Bool
-                test ignored operators =
-                    unsafePerformIO
-                    .
-                    (True <$)
-                    .
-                    validateCode number_of_physical_qubits
-                    .
-                    addAllToSubsystemCode operators
-                    .
-                    initialSubsystemCode
-                    $
-                    number_of_physical_qubits
-                  where
-                    number_of_physical_qubits = bitSize ignored
-            in  [testProperty "Word8"  (test (0::Word8 ))
-                ,testProperty "Word16" (test (0::Word16))
-                ,testProperty "Word32" (test (0::Word32))
-                ]
-             -- }}}
+        ,testProperty "construction from random sets of operators preserves code validity" $ \operators →
+            let number_of_physical_qubits = bitSize (undefined :: Word)
+            in  unsafePerformIO
+                .
+                (True <$)
+                .
+                validateCode number_of_physical_qubits
+                .
+                addAllToSubsystemCode operators
+                .
+                initialSubsystemCode
+                $
+                number_of_physical_qubits
         ]
-     -- }}} Data.Quantum.Operator.SubsystemCode
+     -- }}}
     ]
-    -- }}} Tests
+    -- }}}

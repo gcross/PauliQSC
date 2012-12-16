@@ -17,10 +17,10 @@ Library
         containers == 0.4.*,
         deepseq == 1.3.*
     Exposed-modules:
-        Data.Quantum.Operator,
-        Data.Quantum.Operator.Qubit,
-        Data.Quantum.Operator.ReducedEschelonForm
-        Data.Quantum.Operator.SubsystemCode
+        Data.Quantum.Small.Operator,
+        Data.Quantum.Small.Operator.Qubit,
+        Data.Quantum.Small.Operator.ReducedEschelonForm
+        Data.Quantum.Small.Operator.SubsystemCode
     Extensions:
 
 Test-Suite test
@@ -29,7 +29,7 @@ Test-Suite test
     build-depends:
         base == 4.*,
         HUnit == 1.2.*,
-        test-framework >= 0.4 && < 0.6,
-        test-framework-hunit == 0.2.*,
-        test-framework-quickcheck2 == 0.2.*,
-        QuickCheck == 2.4.*
+        test-framework >= 0.4 && < 0.9,
+        test-framework-hunit >= 0.2 && < 0.4,
+        test-framework-quickcheck2 >= 0.2 && < 0.4,
+        QuickCheck >= 2.4 && < 2.6
