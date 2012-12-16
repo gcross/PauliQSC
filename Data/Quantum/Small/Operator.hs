@@ -13,7 +13,7 @@ module Data.Quantum.Small.Operator where
 
 import Control.Applicative (liftA2)
 
-import Data.Bits (Bits((.&.),bitSize,clearBit,setBit,shiftL,shiftR,testBit,xor))
+import Data.Bits
 import Data.Foldable (foldl')
 import Data.Function (on)
 import qualified Data.IntMap as IntMap
@@ -46,16 +46,20 @@ data Operator = Operator
 
 instance Commutable Operator where -- {{{
     commute a b =
-        ( countBits (operatorX a .&. operatorZ b)
-        + countBits (operatorX b .&. operatorZ a)
+        ( popCount (operatorX a .&. operatorZ b)
+        + popCount (operatorX b .&. operatorZ a)
         ) `mod` 2 == 0
+    {-# INLINE commute #-}
 -- }}}
 instance Monoid Operator where -- {{{
     mempty = Operator 0 0
+    {-# INLINE mempty #-}
     mappend a b = Operator ((xor `on` operatorX) a b) ((xor `on` operatorZ) a b)
+    {-# INLINE mappend #-}
     mconcat = liftA2 Operator
         (foldl' xor 0 . map operatorX)
         (foldl' xor 0 . map operatorZ)
+    {-# INLINE mconcat #-}
 -- }}}
 instance Read Operator where -- {{{
     readsPrec _ "" = [(Operator 0 0,"")]
@@ -92,10 +96,13 @@ instance Commutable Pauli where -- {{{
     commute I _ = True
     commute _ I = True
     commute x y = x == y
+    {-# INLINE commute #-}
 -- }}}
 instance Monoid Pauli where -- {{{
     mempty = I
+    {-# INLINE mempty #-}
     mappend a b = toEnum (fromEnum a `xor` fromEnum b)
+    {-# INLINE mconcat #-}
 -- }}}
 instance Show Pauli where -- {{{
     show = (:[]) . pauliToChar
@@ -112,23 +119,19 @@ agreeAt :: Int → Operator → Operator → Bool -- {{{
 agreeAt i a b =
     (testBit (operatorX a) i == testBit (operatorX b) i) &&
     (testBit (operatorZ a) i == testBit (operatorZ b) i)
+{-# INLINE agreeAt #-}
 -- }}}
 
 -- commuteAt/antiCommuteAt {{{
 commuteAt :: Int → Operator → Operator → Bool
 commuteAt i a b = not (antiCommuteAt i a b)
+{-# INLINE commuteAt #-}
 
 antiCommuteAt :: Int → Operator → Operator → Bool
 antiCommuteAt i a b =
     (testBit (operatorX a) i && testBit (operatorZ b) i) /=
     (testBit (operatorZ a) i && testBit (operatorX b) i)
--- }}}
-
-countBits :: Word → Int -- {{{
-countBits = go 0
-  where
-    go !accum 0 = accum
-    go !accum x = go (if testBit x 0 then accum + 1 else accum) (shiftR x 1)
+{-# INLINE antiCommuteAt #-}
 -- }}}
 
 fromPauliList :: [Pauli] → Operator -- {{{
@@ -149,6 +152,7 @@ getPauliAt column (Operator x z) =
         (True ,False) → X
         (False,True ) → Z
         (True ,True ) → Y
+{-# INLINE getPauliAt #-}
 -- }}}
 
 hasXBit, hasZBit :: Pauli → Bool -- {{{
@@ -157,18 +161,22 @@ hasXBit I = False
 hasXBit X = True
 hasXBit Z = False
 hasXBit Y = True
+{-# INLINE hasXBit #-}
 
 hasZBit I = False
 hasZBit X = False
 hasZBit Z = True
 hasZBit Y = True
+{-# INLINE hasZBit #-}
 -- }}}
 
 hasXBitAt, hasZBitAt :: Int → Operator → Bool -- {{{
 
 hasXBitAt column (Operator x _) = testBit x column
+{-# INLINE hasXBitAt #-}
 
 hasZBitAt column (Operator _ z) = testBit z column
+{-# INLINE hasZBitAt #-}
 -- }}}
 
 maybeFirstNonTrivialColumnOf :: Operator → Maybe Int -- {{{
@@ -179,37 +187,45 @@ maybeFirstNonTrivialColumnOf (Operator x z) = Just (go 0 x z)
       | x .&. 1 /= 0 = i
       | z .&. 1 /= 0 = i
       | otherwise    = go (i+1) (shiftR x 1) (shiftR z 1)
+{-# INLINE maybeFirstNonTrivialColumnOf #-}
 -- }}}
 
 multiplyByIf :: Bool → Operator → Operator → Operator -- {{{
 multiplyByIf False a b = b
 multiplyByIf True a b = b `mappend` a
+{-# INLINE multiplyByIf #-}
 -- }}}
 
 multiplyByIfAntiCommuteAt :: Int → Operator → Operator → Operator -- {{{
 multiplyByIfAntiCommuteAt column a b = multiplyByIf (antiCommuteAt column a b) a b
+{-# INLINE multiplyByIfAntiCommuteAt #-}
 -- }}}
 
 multiplyByIfAntiCommuteWith :: Operator → Operator → Operator → Operator -- {{{
 multiplyByIfAntiCommuteWith multiplier commuter op = multiplyByIf (antiCommute commuter op) multiplier op
+{-# INLINE multiplyByIfAntiCommuteWith #-}
 -- }}}
 
 multiplyByIfAgreeAt :: Int → Operator → Operator → Operator -- {{{
 multiplyByIfAgreeAt column a b = multiplyByIf (agreeAt column a b) a b
+{-# INLINE multiplyByIfAgreeAt #-}
 -- }}}
 
 -- multiplyByIfHas(X/Z/XZ)BitAt {{{
 multiplyByIfHasXBitAt :: Int → Operator → Operator → Operator
 multiplyByIfHasXBitAt column a b = multiplyByIf (hasXBitAt column b) a b
+{-# INLINE multiplyByIfHasXBitAt #-}
 
 multiplyByIfHasZBitAt :: Int → Operator → Operator → Operator
 multiplyByIfHasZBitAt column a b = multiplyByIf (hasZBitAt column b) a b
+{-# INLINE multiplyByIfHasZBitAt #-}
 
 multiplyByIfHasXZBitAt :: Int → Operator → Operator → Operator → Operator
 multiplyByIfHasXZBitAt column x_op z_op =
     multiplyByIfHasXBitAt column x_op
     .
     multiplyByIfHasZBitAt column z_op
+{-# INLINE multiplyByIfHasXZBitAt #-}
 -- }}}
 
 pauliToChar :: Pauli → Char -- {{{
@@ -217,23 +233,28 @@ pauliToChar I = 'I'
 pauliToChar X = 'X'
 pauliToChar Z = 'Z'
 pauliToChar Y = 'Y'
+{-# INLINE pauliToChar #-}
 -- }}}
 
 isIdentity :: Operator → Bool -- {{{
 isIdentity (Operator 0 0) = True
 isIdentity _ = False
+{-# INLINE isIdentity #-}
 -- }}}
 
 isNotIdentity :: Operator → Bool -- {{{
 isNotIdentity = not . isIdentity
+{-# INLINE isNotIdentity #-}
 -- }}}
 
 -- nonTrivialAt / trivialAt -- {{{
 nonTrivialAt :: Int → Operator → Bool
 nonTrivialAt i (Operator x z) = testBit x i || testBit z i
+{-# INLINE nonTrivialAt #-}
 
 trivialAt :: Int → Operator → Bool
 trivialAt i = not . nonTrivialAt i
+{-# INLINE trivialAt #-}
 -- }}}
 
 setPauliAt :: Int → Pauli → Operator → Operator -- {{{
@@ -241,6 +262,7 @@ setPauliAt column I (Operator x z) = Operator (clearBit x column) (clearBit z co
 setPauliAt column X (Operator x z) = Operator (setBit   x column) (clearBit z column)
 setPauliAt column Z (Operator x z) = Operator (clearBit x column) (setBit   z column)
 setPauliAt column Y (Operator x z) = Operator (setBit   x column) (setBit   z column)
+{-# INLINE setPauliAt #-}
 -- }}}
 
 toPauliList :: Int → Operator → [Pauli] -- {{{

@@ -264,7 +264,6 @@ main = defaultMain
                     commuteAt i (fromPauliList components1) (fromPauliList components2)
                  == commute (components1 !! i) (components2 !! i)
              -- }}}
-            ,testProperty "countBits" $ \x → countBits x == length [() | i ← [0..bitSize (undefined :: Word)-1], testBit x i]
             ,testGroup "fromPauliList" -- {{{
                 [testCase "identity" $ forM_ [0..8] $ \n → Operator 0 0 @=? fromPauliList (replicate n I)
                 ,testCase "IXYZ" $ Operator 6 12 @=? fromPauliList [I,X,Y,Z]

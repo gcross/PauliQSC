@@ -31,6 +31,7 @@ makeOperatorCommuteWithQubit o (Qubit x z) =
     multiplyByIfAntiCommuteWith z x
     $
     o
+{-# INLINE makeOperatorCommuteWithQubit #-}
 -- }}}
 
 multiplyQubitByIfAntiCommuteWith :: Operator → Operator → Qubit → Qubit -- {{{
@@ -38,8 +39,10 @@ multiplyQubitByIfAntiCommuteWith multiplier commuter (Qubit x z) =
     Qubit
         (multiplyByIf (antiCommute commuter x) multiplier x)
         (multiplyByIf (antiCommute commuter z) multiplier z)
+{-# INLINE multiplyQubitByIfAntiCommuteWith #-}
 -- }}}
 
 qubitY (Qubit x z) = x `mappend` z
+{-# INLINE qubitY #-}
 
 -- }}} Functions
